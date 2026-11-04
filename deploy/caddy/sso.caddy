@@ -1,0 +1,14 @@
+# SSO — mounted at /sso on the shared caddy listener (127.0.0.1:8080).
+#
+# Add this line to the `route { ... }` block of the http://:8080 server in
+# /etc/caddy/Caddyfile, next to the other `import prefix ...` lines:
+#
+#     import prefix sso 127.0.0.1:3550
+#
+# It reuses the existing (prefix) snippet, which forwards both `/sso` and
+# `/sso/*` after stripping the prefix. That matches the application: FastCGI sees
+# plain paths (/oauth/token, /admin), while SSO_ISSUER carries the public /sso
+# base URL in every issued token and in the discovery document.
+#
+# No extra stanza is needed: caddy already forwards X-Forwarded-For/-Proto, and
+# the app trusts them only from 127.0.0.1 (SSO_TRUSTED_PROXIES).

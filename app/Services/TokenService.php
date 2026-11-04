@@ -8,6 +8,7 @@ use App\Models\OauthClient;
 use App\Models\RefreshToken;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -324,7 +325,7 @@ class TokenService
 
     /**
      * @param  string[]  $scopes
-     * @return array{0: string, 1: AccessToken, 2: \Illuminate\Support\Carbon}
+     * @return array{0: string, 1: AccessToken, 2: Carbon}
      */
     private function mintJwt(
         string $subject,

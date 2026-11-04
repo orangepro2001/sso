@@ -34,8 +34,8 @@ class GuestSignCommand extends Command
         $this->components->twoColumnDetail('signature', $guests->sign($deviceId));
 
         $this->newLine();
-        $this->line('curl -sS -X POST '.rtrim((string) config('sso.issuer'), '/').'/oauth/guest \');
-        $this->line('  -H "Content-Type: application/json" \');
+        $this->line('curl -sS -X POST '.rtrim((string) config('sso.issuer'), '/').'/oauth/guest \\');
+        $this->line('  -H "Content-Type: application/json" \\');
         $this->line('  -d '.escapeshellarg(json_encode([
             'device_id' => $deviceId,
             'algo' => $guests->algorithm(),

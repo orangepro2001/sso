@@ -6,7 +6,6 @@ use App\Models\Admin;
 use App\Services\AuditLogger;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 /**
  * Bootstrap (and emergency) administrator creation.

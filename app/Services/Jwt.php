@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\SigningKey;
 use RuntimeException;
 
 /**
@@ -81,7 +82,7 @@ final class Jwt
     /**
      * JWK set for the discovery document (public halves only).
      *
-     * @param  iterable<\App\Models\SigningKey>  $keys
+     * @param  iterable<SigningKey>  $keys
      * @return array<int, array<string, string>>
      */
     public static function jwks(iterable $keys): array

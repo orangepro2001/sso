@@ -56,7 +56,7 @@ return [
         'secret' => (string) env('SSO_GUEST_SECRET', ''),
         'algo' => 'hmac-sha256',
         'prefix' => 'sso-guest-v1',
-        'scope' => 'db:read',
+        'scope' => (string) env('SSO_GUEST_SCOPE', 'db:read'),
         'token_ttl' => (int) env('SSO_GUEST_TOKEN_TTL', 0),
         'require_signature' => (bool) env('SSO_GUEST_REQUIRE_SIGNATURE', true),
     ],

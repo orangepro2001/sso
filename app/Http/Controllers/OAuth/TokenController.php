@@ -4,6 +4,7 @@ namespace App\Http\Controllers\OAuth;
 
 use App\Http\Controllers\Controller;
 use App\Models\OauthAuthCode;
+use App\Models\OauthClient;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ClientAuthenticator;
@@ -116,7 +117,7 @@ class TokenController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function refreshToken(Request $request, \App\Models\OauthClient $client): array
+    private function refreshToken(Request $request, OauthClient $client): array
     {
         $plain = (string) $request->input('refresh_token', '');
         if ($plain === '') {
@@ -129,7 +130,7 @@ class TokenController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function clientCredentials(Request $request, \App\Models\OauthClient $client): array
+    private function clientCredentials(Request $request, OauthClient $client): array
     {
         if ($client->isPublic()) {
             throw OAuthException::unauthorizedClient('Public clients cannot use client_credentials');

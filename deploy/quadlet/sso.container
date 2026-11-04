@@ -1,0 +1,51 @@
+# Quadlet unit for the SSO authorization center.
+#
+# Installed by deploy/scripts/install.sh into ~/.config/containers/systemd/ and
+# started as a systemd --user service (sso.service). Host networking keeps the
+# published-port story simple: nginx inside the container binds 0.0.0.0:3550 and
+# caddy reaches it on 127.0.0.1:3550.
+
+[Unit]
+Description=SSO authorization center (OAuth2 / OIDC)
+Documentation=https://github.com/orangepro2001/sso
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=localhost/sso:current
+ContainerName=sso
+Network=host
+
+Environment=SSO_LISTEN=0.0.0.0:3550
+EnvironmentFile=%h/.config/sso/env
+
+# Writable state on tmpfs: the image is built for a read-only rootfs.
+Tmpfs=/tmp:rw,mode=1777
+Tmpfs=/app/storage:rw,mode=1777
+Tmpfs=/app/bootstrap/cache:rw,mode=1777
+
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+
+# The bootstrap administrator password is a systemd credential, mounted as a file
+# so it never appears in the unit file or in `podman inspect`.
+Secret=sso-bootstrap-admin-password,type=mount,target=/run/secrets/sso_bootstrap_admin_password,mode=0400
+
+HealthCmd=["curl","-fsS","http://127.0.0.1:3550/healthz"]
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=30s
+HealthOnFailure=kill
+LogDriver=journald
+
+AutoUpdate=local
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

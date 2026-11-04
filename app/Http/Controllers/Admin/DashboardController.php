@@ -9,6 +9,7 @@ use App\Models\BlacklistEntry;
 use App\Models\GuestDevice;
 use App\Models\OauthClient;
 use App\Models\RefreshToken;
+use App\Models\SigningKey;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -34,7 +35,7 @@ class DashboardController extends Controller
             'recentDevices' => GuestDevice::query()->latest('last_seen_at')->limit(8)->get(),
             'recentAudit' => AuditLog::query()->latest('id')->limit(15)->get(),
             'guestSecretConfigured' => (string) config('sso.guest.secret', '') !== '',
-            'keyCount' => \App\Models\SigningKey::query()->count(),
+            'keyCount' => SigningKey::query()->count(),
         ]);
     }
 

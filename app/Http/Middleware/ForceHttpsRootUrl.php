@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -23,10 +24,10 @@ class ForceHttpsRootUrl
         $path = trim((string) config('sso.session_path', '/sso'), '/');
 
         $root = $scheme.'://'.$request->getHost().($path === '' ? '' : '/'.$path);
-        \Illuminate\Support\Facades\URL::forceRootUrl($root);
+        URL::forceRootUrl($root);
 
         if ($scheme === 'https') {
-            \Illuminate\Support\Facades\URL::forceScheme('https');
+            URL::forceScheme('https');
         }
 
         return $next($request);

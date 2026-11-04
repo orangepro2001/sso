@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AccessToken;
+use App\Models\BlacklistEntry;
 use App\Models\GuestDevice;
-use App\Models\OauthClient;
 use App\Services\AuditLogger;
 use App\Services\BlacklistService;
 use Illuminate\Http\RedirectResponse;
@@ -73,7 +73,7 @@ class DeviceController extends Controller
         ])->save();
 
         $this->blacklist->block(
-            \App\Models\BlacklistEntry::KIND_DEVICE,
+            BlacklistEntry::KIND_DEVICE,
             $device->device_id,
             $data['reason'] ?? 'Device blacklisted from the console',
             Auth::guard('admin')->id(),
@@ -100,7 +100,7 @@ class DeviceController extends Controller
             'reviewed_by' => Auth::guard('admin')->id(),
         ])->save();
 
-        $this->blacklist->unblock(\App\Models\BlacklistEntry::KIND_DEVICE, $device->device_id);
+        $this->blacklist->unblock(BlacklistEntry::KIND_DEVICE, $device->device_id);
 
         $this->audit->log('admin.device.unblocked', 'admin', Auth::guard('admin')->id(), 'device', $device->device_id, [], $request);
 

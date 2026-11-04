@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\OAuth;
 
 use App\Http\Controllers\Controller;
-use App\Models\GuestDevice;
 use App\Services\GuestService;
 use App\Services\OAuthException;
 use Illuminate\Http\JsonResponse;

@@ -26,7 +26,7 @@ class BlacklistController extends Controller
     public function index(): View
     {
         return view('admin.blacklist.index', [
-            'entries' => \App\Models\BlacklistEntry::query()->latest('id')->paginate(50),
+            'entries' => BlacklistEntry::query()->latest('id')->paginate(50),
         ]);
     }
 
@@ -34,10 +34,10 @@ class BlacklistController extends Controller
     {
         $data = $request->validate([
             'kind' => ['required', Rule::in([
-                \App\Models\BlacklistEntry::KIND_DEVICE,
-                \App\Models\BlacklistEntry::KIND_USER,
-                \App\Models\BlacklistEntry::KIND_TOKEN,
-                \App\Models\BlacklistEntry::KIND_CLIENT,
+                BlacklistEntry::KIND_DEVICE,
+                BlacklistEntry::KIND_USER,
+                BlacklistEntry::KIND_TOKEN,
+                BlacklistEntry::KIND_CLIENT,
             ])],
             'value' => ['required', 'string', 'max:191'],
             'reason' => ['nullable', 'string', 'max:500'],
@@ -52,7 +52,7 @@ class BlacklistController extends Controller
         return redirect()->route('admin.blacklist.index')->with('status', 'Entry added.');
     }
 
-    public function destroy(Request $request, \App\Models\BlacklistEntry $entry): RedirectResponse
+    public function destroy(Request $request, BlacklistEntry $entry): RedirectResponse
     {
         $this->audit->log('admin.blacklist.removed', 'admin', Auth::guard('admin')->id(), $entry->kind, $entry->value, [], $request);
         $entry->delete();
