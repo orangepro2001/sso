@@ -38,8 +38,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'oauth/guest',
         ]);
 
+        // ForceHttpsRootUrl must run *before* StartSession: the session stores the
+        // "previous URL" (used by back()/redirect()->back()) and the CSRF referer,
+        // and those values have to be built from the public root. Appending it after
+        // the group (as is tempting) stores /admin/login instead of /sso/admin/login
+        // and every validation-failure redirect lands on a 404.
+        $middleware->prependToGroup('web', ForceHttpsRootUrl::class);
+
         $middleware->web(append: [
-            ForceHttpsRootUrl::class,
             SecurityHeaders::class,
         ]);
 

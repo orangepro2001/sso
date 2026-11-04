@@ -1,0 +1,4 @@
+{
+    "preset": "laravel",
+    "exclude": ["work-report", "vendor", "storage", "bootstrap/cache"]
+}

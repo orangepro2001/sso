@@ -32,3 +32,6 @@
 
 # Unrelated checkout that does not belong to this repository.
 /work-report/
+
+# A foreign checkout that a broad `git add -A` used to sweep in.
+work-report/

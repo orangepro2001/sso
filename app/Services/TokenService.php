@@ -71,7 +71,7 @@ class TokenService
         return [
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'expires_in' => max(0, $expiresAt->getTimestamp() - now()->getTimestamp()),
+            'expires_in' => (int) config('sso.access_token_ttl', 604800),
             'refresh_token' => $refresh,
             'scope' => implode(' ', $scopes),
             'id_token' => $idToken,
@@ -103,7 +103,7 @@ class TokenService
         return [
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'expires_in' => max(0, $expiresAt->getTimestamp() - now()->getTimestamp()),
+            'expires_in' => (int) config('sso.access_token_ttl', 604800),
             'scope' => implode(' ', $scopes),
         ];
     }
