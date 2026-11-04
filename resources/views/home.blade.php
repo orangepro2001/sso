@@ -31,10 +31,13 @@
 
     <h2>Sign in</h2>
     <div class="card">
-        <p class="small muted">There is no self-service registration. If you need an account, ask an administrator.</p>
+        <p class="small muted">
+            There is no self-service registration. If you need an account, ask an administrator.
+            Administrators and users are separate accounts and separate sign-in pages.
+        </p>
         <div class="row">
-            <a class="btn primary" href="{{ route('login') }}">User sign-in</a>
-            <a class="btn" href="{{ route('admin.login') }}">Console</a>
+            <a class="btn primary" href="{{ route('admin.login') }}">Administrator console</a>
+            <a class="btn" href="{{ route('login') }}">User sign-in</a>
         </div>
     </div>
 @endsection

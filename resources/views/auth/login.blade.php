@@ -26,4 +26,15 @@
             <a class="btn" href="{{ route('home') }}">Cancel</a>
         </div>
     </form>
+
+    {{-- Administrators are a separate identity space with their own sign-in page.
+         Said unconditionally, so this hint cannot be used to enumerate admins. --}}
+    <div class="card">
+        <p class="small muted" style="margin:0">
+            <strong>Administrator?</strong> The console has its own sign-in page:
+            <a href="{{ route('admin.login') }}">console sign-in</a>.
+            Administrator accounts do not work here, and user accounts do not work
+            there.
+        </p>
+    </div>
 @endsection

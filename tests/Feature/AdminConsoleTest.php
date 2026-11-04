@@ -33,6 +33,46 @@ class AdminConsoleTest extends TestCase
         $this->get('/admin/devices')->assertRedirect(route('admin.login'));
     }
 
+    public function test_the_user_sign_in_page_points_administrators_elsewhere(): void
+    {
+        // The two identity spaces have separate forms; a person holding an admin
+        // account must be told so instead of being left with "credentials do not
+        // match" (that is exactly what happened in practice).
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Administrator?')
+            ->assertSee(route('admin.login'));
+    }
+
+    public function test_an_admin_account_does_not_sign_in_on_the_user_page(): void
+    {
+        $this->admin();
+
+        $this->post('/login', ['email' => 'boss@example.test', 'password' => 'boss-password-1'])
+            ->assertSessionHasErrors('email');
+
+        $this->assertGuest('web');
+        $this->assertGuest('admin');
+    }
+
+    public function test_a_user_account_does_not_sign_in_on_the_console_page(): void
+    {
+        User::factory()->create(['email' => 'plain@example.test', 'password' => 'a-very-good-password']);
+
+        $this->post('/admin/login', ['email' => 'plain@example.test', 'password' => 'a-very-good-password'])
+            ->assertSessionHasErrors('email');
+
+        $this->assertGuest('admin');
+    }
+
+    public function test_the_home_page_links_to_both_sign_in_pages(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Administrator console')
+            ->assertSee('User sign-in');
+    }
+
     public function test_there_is_no_registration_route(): void
     {
         $this->get('/register')->assertNotFound();
