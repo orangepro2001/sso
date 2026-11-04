@@ -47,6 +47,8 @@ case "${1:-serve}" in
         exec php artisan migrate --force
         ;;
     prune)
+        # Drop the "prune" dispatch word, keep everything else (--dry-run, ...).
+        shift
         exec php artisan sso:prune "$@"
         ;;
     *)

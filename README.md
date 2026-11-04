@@ -101,8 +101,8 @@ per device is always kept), devices unseen for 180 days — active ones only, so
 blacklist can never be silently forgotten — and audit rows older than 90 days.
 
 ```bash
-podman exec sso sso:prune --dry-run     # report only
-podman exec sso sso:prune               # default: 90d audit, 180d devices
+php artisan sso:prune --dry-run        # via `podman exec sso php artisan sso:prune`
+php artisan sso:prune                  # default: 90d audit, 180d devices
 ```
 
 Installed as `sso-prune.timer` (nightly, `Persistent=true`) by `install.sh`.

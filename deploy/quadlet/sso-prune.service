@@ -20,4 +20,4 @@ Type=oneshot
 ExecStart=/usr/bin/podman run --rm --network=host \
     --env-file=%h/.config/sso/env \
     --security-opt=no-new-privileges \
-    localhost/sso:current sso:prune
+    localhost/sso:current prune
