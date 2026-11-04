@@ -34,7 +34,7 @@ DropCapability=ALL
 # root-only and the bootstrap step cannot read it.
 Secret=sso-bootstrap-admin-password,type=mount,target=/run/secrets/sso_bootstrap_admin_password,uid=65534,gid=65534,mode=0400
 
-HealthCmd=["curl","-fsS","http://127.0.0.1:3550/healthz"]
+HealthCmd=["curl","-fsS","-o","/dev/null","http://127.0.0.1:3550/healthz"]
 HealthInterval=30s
 HealthTimeout=5s
 HealthRetries=3
