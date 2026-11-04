@@ -15,7 +15,7 @@ env:
 
 jobs:
   test:
-    name: tests (PHP ${{ env.PHP_VERSION }} + PostgreSQL)
+    name: tests (PHP + PostgreSQL)
     runs-on: ubuntu-latest
 
     services:
