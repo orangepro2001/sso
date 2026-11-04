@@ -57,23 +57,20 @@ main() {
         sed -i "s|^SSO_BOOTSTRAP_ADMIN_PASSWORD_FILE=.*|SSO_BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/sso_bootstrap_admin_password|" "$CONFIG_DIR/env"
         chmod 600 "$CONFIG_DIR/env"
 
-        printf 'bootstrap-password-%s' "$(head -c 9 /dev/urandom | base64 | tr -d '/+=')" > "$CONFIG_DIR/bootstrap_admin_password"
-        chmod 600 "$CONFIG_DIR/bootstrap_admin_password"
-
-        log "generated an APP_KEY and a bootstrap administrator password"
+        log "generated an APP_KEY"
         log "edit $CONFIG_DIR/env now: DB_PASSWORD, SSO_GUEST_SECRET, SSO_ISSUER, SSO_BOOTSTRAP_ADMIN_EMAIL"
     fi
 
-    log "installing systemd credentials"
-    mkdir -p "$CONFIG_DIR/credentials"
-    if [ ! -f "$CONFIG_DIR/credentials/sso-bootstrap-admin-password" ]; then
-        if [ -f "$CONFIG_DIR/bootstrap_admin_password" ]; then
-            cp "$CONFIG_DIR/bootstrap_admin_password" "$CONFIG_DIR/credentials/sso-bootstrap-admin-password"
-        else
-            die "missing $CONFIG_DIR/credentials/sso-bootstrap-admin-password and no source file to copy"
-        fi
+    log "installing the bootstrap password secret"
+    pw_file=$CONFIG_DIR/bootstrap_admin_password
+    if [ ! -f "$pw_file" ]; then
+        printf 'bootstrap-password-%s' "$(head -c 18 /dev/urandom | base64 | tr -d '/+=')" > "$pw_file"
+        chmod 600 "$pw_file"
+        log "generated $pw_file (edit it before the first boot to choose your own)"
     fi
-    chmod 600 "$CONFIG_DIR/credentials/sso-bootstrap-admin-password"
+    # podman secrets are what the quadlet unit mounts; keep them in sync.
+    podman secret rm sso-bootstrap-admin-password >/dev/null 2>&1 || true
+    podman secret create sso-bootstrap-admin-password "$pw_file" >/dev/null
 
     log "installing $QUADLET_DIR/$UNIT"
     # The unit uses %h/... paths, so it works unchanged for any user.

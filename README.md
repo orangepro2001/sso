@@ -138,7 +138,13 @@ curl -fsS https://host/sso/healthz
 
 The unit (`deploy/quadlet/sso.container`) runs the image with a read-only rootfs,
 `--cap-drop all`, `no-new-privileges` and tmpfs for the two writable paths, as an
-unprivileged user. The bootstrap password is a systemd credential, never an env var.
+unprivileged user. The bootstrap password is a **podman secret** mounted at
+`/run/secrets/sso_bootstrap_admin_password`, never an environment variable:
+
+```bash
+podman secret create sso-bootstrap-admin-password ~/.config/sso/bootstrap_admin_password
+podman exec sso cat /run/secrets/sso_bootstrap_admin_password   # read it back when needed
+```
 
 ### Database
 
