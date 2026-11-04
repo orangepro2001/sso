@@ -1,0 +1,75 @@
+# Public HTTPS entry point on egg (210.207.108.170, NATed to the NIC 172.22.0.29).
+# Served by the rootful Quadlet daily-work-web-caddy.container, which mounts this
+# file at /etc/caddy/Caddyfile. Let's Encrypt certificates live in the
+# daily-work-web-caddy-data volume, so the name is kept even though it now fronts
+# more than daily-work-web.
+#
+# Only services that are actually running are exposed here:
+#   /sso   -> SSO authorization center      (127.0.0.1:3550)
+#   /teach -> AFVI web                      (127.0.0.1:8093)
+# Everything else answers 404. Deliberately no fallback to a dead backend: a 502
+# from a stopped service is an invitation for scanners and tells them nothing true.
+#
+# Tailnet access is separate and stays on /etc/caddy/Caddyfile (127.0.0.1:8080,
+# fronted by tailscale serve); that listener is unaffected by this file.
+{
+	# Bind only the NIC address: the public 210.207.108.170 is NATed to 172.22.0.29,
+	# while tailscaled owns :443 on the tailnet address, so a wildcard 0.0.0.0:443
+	# socket would fail with "address already in use" at boot.
+	default_bind tcp4/172.22.0.29
+	# The tailnet listener (/etc/caddy/Caddyfile) already owns 127.0.0.1:2019, and
+	# this instance is managed through the file only, so it needs no admin API.
+	admin off
+	servers {
+		# HTTP/3 needs UDP 443 open in the firewall as well as TCP 443.
+		protocols h1 h2 h3
+	}
+}
+
+# Mount a backend at a path prefix, stripping the prefix before forwarding --
+# the same semantics the tailnet listener uses, so both entry points agree.
+(prefix) {
+	@{args[0]} path /{args[0]} /{args[0]}/*
+	handle @{args[0]} {
+		uri strip_prefix /{args[0]}
+		reverse_proxy {args[1]}
+	}
+}
+
+521985.xyz {
+	tls {
+		# Post-quantum hybrid key exchange first (ML-KEM-768 + X25519), classical fallback.
+		curves x25519mlkem768 x25519
+	}
+	encode zstd gzip
+	header -Server
+
+	route {
+		# SSO: public by design (the service binds every interface and does not
+		# restrict by IP). Its own /admin console is session-protected.
+		import prefix sso 127.0.0.1:3550
+
+		# AFVI web. The app knows its prefix (AFVI_BASE_PATH=/teach) and keeps it in
+		# its own URLs, so unlike /sso the prefix must reach the backend unchanged.
+		@teach path /teach /teach/*
+		handle @teach {
+			reverse_proxy 127.0.0.1:8093
+		}
+
+		handle {
+			respond "404 page not found" 404
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+www.521985.xyz {
+	tls {
+		curves x25519mlkem768 x25519
+	}
+	redir https://521985.xyz{uri} permanent
+}

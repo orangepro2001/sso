@@ -94,9 +94,12 @@ main() {
         if curl -fsS -m 2 http://127.0.0.1:3550/healthz >/dev/null 2>&1; then
             log "healthy: http://127.0.0.1:3550/healthz"
             printf '\nNext steps:\n'
-            printf '  1. caddy: add `import prefix sso 127.0.0.1:3550` to /etc/caddy/Caddyfile and `systemctl reload caddy`\n'
-            printf '  2. verify: curl -fsS https://<host>/sso/healthz\n'
-            printf '  3. open  https://<host>/sso/admin and sign in with the bootstrap administrator\n'
+            printf '  1. tailnet caddy: add `import prefix sso 127.0.0.1:3550` to /etc/caddy/Caddyfile, then `systemctl reload caddy`\n'
+            printf '  2. public caddy (optional): install deploy/caddy/public.Caddyfile as /etc/daily-work-web/Caddyfile,\n'
+            printf '     then `systemctl daemon-reload && systemctl restart daily-work-web-caddy`\n'
+            printf '  3. set SSO_ISSUER to the canonical public base URL in %s/env and restart the unit\n' "$CONFIG_DIR"
+            printf '  4. verify: curl -fsS https://<host>/sso/healthz\n'
+            printf '  5. open  https://<host>/sso/admin and sign in with the bootstrap administrator\n'
             return 0
         fi
         sleep 1
