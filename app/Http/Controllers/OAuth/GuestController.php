@@ -64,7 +64,9 @@ class GuestController extends Controller
             'device_status' => $result['device']->status,
             'signature_valid' => $result['signature_valid'],
             'newly_enrolled' => $result['first_seen'],
-            'introspection_endpoint' => url('/oauth/introspect'),
+            // Built from the issuer, not from the request, so the value is identical
+            // no matter which proxy hop or bind address the call came through.
+            'introspection_endpoint' => rtrim((string) config('sso.issuer'), '/').'/oauth/introspect',
         ])->withHeaders([
             'Cache-Control' => 'no-store',
             'Pragma' => 'no-cache',

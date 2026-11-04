@@ -10,17 +10,20 @@ log() { printf '%s entrypoint: %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*" >&2
 
 cd /app
 
-# Writable state, expected to be backed by tmpfs because the rootfs is read-only.
-mkdir -p storage/framework/{cache/data,sessions,views} storage/logs bootstrap/cache
-chown -R nobody:nobody storage bootstrap/cache 2>/dev/null || true
+# storage/ and bootstrap/cache are tmpfs mounts because the rootfs is read-only
+# and Laravel writes compiled config, routes and views at boot.
+mkdir -p storage/framework/{cache/data,sessions,views} storage/logs bootstrap/cache /tmp/nginx
+
+# The package manifest lives in bootstrap/cache too, so rebuild it on every boot
+# (it is derived from vendor/composer/installed.json and takes milliseconds).
+log "discovering packages"
+php artisan package:discover --ansi >/dev/null
 
 if [ -z "${APP_KEY:-}" ]; then
     log "APP_KEY is empty: generate one with 'php artisan key:generate --show' and pass it in the environment."
     exit 1
 fi
 
-# Configuration is baked into a cache file for speed; it must be dumped before the
-# first request because the rootfs is read-only and PHP cannot write it later.
 log "caching configuration"
 php artisan config:cache --no-interaction >/dev/null
 

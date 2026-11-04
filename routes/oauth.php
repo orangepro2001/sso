@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\OAuth\AuthorizeController;
 use App\Http\Controllers\OAuth\DiscoveryController;
 use App\Http\Controllers\OAuth\GuestController;
@@ -32,9 +33,5 @@ Route::post('oauth/guest', GuestController::class)
     ->middleware('throttle:120,1')
     ->name('oauth.guest');
 
-Route::get('healthz', fn () => response()->json([
-    'status' => 'ok',
-    'service' => 'sso',
-    'issuer' => config('sso.issuer'),
-    'time' => now()->toIso8601String(),
-]))->name('healthz');
+// Plain controller (no closure) so that `route:cache` works in the image.
+Route::get('healthz', HealthController::class)->name('healthz');
