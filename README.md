@@ -21,7 +21,7 @@ All paths are relative to the public mount point (`SSO_ISSUER`, e.g. `https://ho
 | --- | --- | --- |
 | `GET` | `/.well-known/openid-configuration` | discovery (RFC 8414 / OIDC) |
 | `GET` | `/.well-known/jwks.json` | RS256 public keys |
-| `GET` | `/oauth/authorize` | authorization code, PKCE `S256` or `plain` |
+| `GET` | `/oauth/authorize` | authorization code, PKCE `S256` (mandatory for public clients) |
 | `POST` | `/oauth/token` | `authorization_code`, `refresh_token`, `client_credentials` |
 | `POST` | `/oauth/introspect` | RFC 7662, requires client authentication |
 | `POST` | `/oauth/revoke` | RFC 7009 |
@@ -91,6 +91,21 @@ Compute the signature with the built-in command or one shell line:
 php artisan sso:guest-sign lab-host-07        # prints payload, signature and a ready curl
 printf 'sso-guest-v1\nlab-host-07' | openssl dgst -sha256 -hmac "$SSO_GUEST_SECRET" -r | cut -d' ' -f1
 ```
+
+## Housekeeping
+
+Guest tokens never expire, so `sso:prune` is what keeps the tables bounded. It
+deletes only rows that can no longer authenticate anything: revoked/expired
+tokens, spent authorization codes, superseded guest tokens (the newest live token
+per device is always kept), devices unseen for 180 days — active ones only, so a
+blacklist can never be silently forgotten — and audit rows older than 90 days.
+
+```bash
+podman exec sso sso:prune --dry-run     # report only
+podman exec sso sso:prune               # default: 90d audit, 180d devices
+```
+
+Installed as `sso-prune.timer` (nightly, `Persistent=true`) by `install.sh`.
 
 ## Console
 

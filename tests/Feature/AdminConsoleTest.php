@@ -81,6 +81,34 @@ class AdminConsoleTest extends TestCase
         $this->assertGuest('web');
     }
 
+    public function test_remember_me_works_for_an_admin(): void
+    {
+        // The admins table used to lack remember_token, so ticking this box made
+        // the login itself fail with an undefined-column error.
+        $this->admin();
+
+        $this->post('/admin/login', [
+            'email' => 'boss@example.test',
+            'password' => 'boss-password-1',
+            'remember' => '1',
+        ])->assertRedirect(route('admin.dashboard'));
+
+        $this->assertAuthenticated('admin');
+    }
+
+    public function test_remember_me_works_for_a_user(): void
+    {
+        User::factory()->create(['email' => 'kept@example.test', 'password' => 'a-very-good-password']);
+
+        $this->post('/login', [
+            'email' => 'kept@example.test',
+            'password' => 'a-very-good-password',
+            'remember' => '1',
+        ])->assertRedirect();
+
+        $this->assertAuthenticated('web');
+    }
+
     public function test_an_admin_can_register_a_confidential_client_and_sees_the_secret_once(): void
     {
         $this->signIn();

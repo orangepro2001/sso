@@ -79,6 +79,12 @@ main() {
     log "reloading systemd --user"
     systemctl --user daemon-reload
 
+    log "installing the housekeeping timer"
+    as_root install -m 0644 "$SRC/deploy/quadlet/sso-prune.service" "$QUADLET_DIR/sso-prune.service"
+    as_root install -m 0644 "$SRC/deploy/quadlet/sso-prune.timer" "$QUADLET_DIR/sso-prune.timer"
+    systemctl --user daemon-reload
+    systemctl --user enable --now sso-prune.timer >/dev/null 2>&1 || true
+
     log "enabling and restarting $SERVICE"
     systemctl --user enable "$SERVICE" >/dev/null 2>&1 || true
     systemctl --user restart "$SERVICE"

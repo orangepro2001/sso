@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SSO housekeeping nightly
+
+[Timer]
+OnCalendar=daily
+# A laptop that was asleep at 03:20 still gets its run when it wakes up.
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target

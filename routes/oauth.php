@@ -29,8 +29,11 @@ Route::post('oauth/userinfo', UserInfoController::class)->name('oauth.userinfo.p
 
 // The silent guest channel. Rate limited generously: it is meant to be called by
 // machines, but a runaway loop should not be able to fill the database.
+// Keyed by device id, not by IP: the whole point of the channel is silent
+// service, and an office behind one NAT address must not starve itself. The IP is
+// the fallback for the (allowed) case where no device_id was sent.
 Route::post('oauth/guest', GuestController::class)
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:oauth-guest')
     ->name('oauth.guest');
 
 // Plain controller (no closure) so that `route:cache` works in the image.

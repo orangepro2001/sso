@@ -105,9 +105,8 @@ class TokenController extends Controller
             throw OAuthException::invalidGrant('code_verifier is required for this authorization code');
         }
 
-        $computed = $code->code_challenge_method === 'PLAIN'
-            ? $verifier
-            : rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+        // S256 only (enforced at the authorize step).
+        $computed = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
 
         if (! hash_equals((string) $code->code_challenge, $computed)) {
             throw OAuthException::invalidGrant('code_verifier does not match the code_challenge');

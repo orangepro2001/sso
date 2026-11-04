@@ -46,6 +46,9 @@ case "${1:-serve}" in
     migrate)
         exec php artisan migrate --force
         ;;
+    prune)
+        exec php artisan sso:prune "$@"
+        ;;
     *)
         exec "$@"
         ;;

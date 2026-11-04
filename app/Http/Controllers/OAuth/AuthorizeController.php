@@ -45,7 +45,20 @@ class AuthorizeController extends Controller
             return $this->redirectError($redirectUri, 'unsupported_response_type', 'Only response_type=code is supported', $request);
         }
 
-        [$challenge, $method] = $this->pkce($request, $redirectUri);
+        [$challenge, $method] = $this->pkce($request);
+
+        // A public client has no secret, so PKCE is the only thing binding the
+        // authorization code to the requester. Without it, anyone who can read the
+        // redirect (browser history, a shared machine, a referer leak) can redeem
+        // the code and take over the account. RFC 7636 §4.1 / RFC 9700 require it.
+        if ($client->isPublic() && $challenge === null) {
+            return $this->redirectError(
+                $redirectUri,
+                'invalid_request',
+                'Public clients must send code_challenge with code_challenge_method=S256',
+                $request,
+            );
+        }
 
         $requestedScopes = $this->scopes($request);
         $scopes = $client->grantedScopes($requestedScopes);
@@ -88,7 +101,7 @@ class AuthorizeController extends Controller
     /**
      * @return array{0: string|null, 1: string|null}
      */
-    private function pkce(Request $request, string $redirectUri): array
+    private function pkce(Request $request): array
     {
         $challenge = $request->query('code_challenge');
         $method = strtoupper((string) $request->query('code_challenge_method', 'S256'));
@@ -97,7 +110,9 @@ class AuthorizeController extends Controller
             return [null, null];
         }
 
-        if (! in_array($method, ['S256', 'PLAIN'], true)) {
+        // S256 only: "plain" gains nothing over sending nothing and invites
+        // implementations that leak the verifier.
+        if ($method !== 'S256') {
             return [null, null];
         }
 

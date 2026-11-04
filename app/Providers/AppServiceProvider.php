@@ -32,7 +32,14 @@ class AppServiceProvider extends ServiceProvider
     {
         Password::defaults(fn () => Password::min(12));
 
-        // A machine-run guest call is cheap, but a loop should still be capped.
-        RateLimiter::for('oauth-guest', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
+        // A machine-run guest call is cheap, but a runaway loop should still be
+        // capped. Keyed by device id so one busy device cannot exhaust the budget
+        // of every other device behind the same NAT address.
+        RateLimiter::for('oauth-guest', function (Request $request) {
+            $device = $request->input('device_id');
+            $key = is_string($device) && trim($device) !== '' ? 'dev:'.trim($device) : 'ip:'.$request->ip();
+
+            return Limit::perMinute(120)->by($key);
+        });
     }
 }

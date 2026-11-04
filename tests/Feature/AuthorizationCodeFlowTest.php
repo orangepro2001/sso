@@ -110,6 +110,58 @@ class AuthorizationCodeFlowTest extends TestCase
         ])->assertStatus(400)->assertJsonPath('error', 'invalid_grant');
     }
 
+    public function test_a_public_client_without_pkce_is_refused(): void
+    {
+        // Without a secret there is nothing else binding the code to the client,
+        // so PKCE is mandatory (RFC 9700).
+        $client = $this->client();
+        $this->login();
+
+        $response = $this->get('/oauth/authorize?'.http_build_query([
+            'response_type' => 'code',
+            'client_id' => $client->client_id,
+            'redirect_uri' => 'https://client.example/callback',
+            'scope' => 'openid',
+        ]));
+
+        $response->assertRedirect();
+        $location = (string) $response->headers->get('Location');
+        $this->assertStringContainsString('error=invalid_request', $location);
+        $this->assertStringNotContainsString('code=', $location);
+    }
+
+    public function test_a_confidential_client_may_omit_pkce(): void
+    {
+        $client = OauthClient::factory()->confidential('very-secret-1')->create();
+        $this->login();
+
+        $location = (string) $this->get('/oauth/authorize?'.http_build_query([
+            'response_type' => 'code',
+            'client_id' => $client->client_id,
+            'redirect_uri' => 'https://client.example/callback',
+            'scope' => 'openid',
+        ]))->headers->get('Location');
+
+        $this->assertStringContainsString('code=', $location);
+    }
+
+    public function test_the_plain_pkce_method_is_refused(): void
+    {
+        $client = $this->client();
+        $this->login();
+
+        $location = (string) $this->get('/oauth/authorize?'.http_build_query([
+            'response_type' => 'code',
+            'client_id' => $client->client_id,
+            'redirect_uri' => 'https://client.example/callback',
+            'scope' => 'openid',
+            'code_challenge' => 'abc',
+            'code_challenge_method' => 'plain',
+        ]))->headers->get('Location');
+
+        $this->assertStringContainsString('error=invalid_request', $location);
+    }
+
     public function test_an_unregistered_redirect_uri_is_refused(): void
     {
         $client = $this->client();
@@ -210,13 +262,15 @@ class AuthorizationCodeFlowTest extends TestCase
         $client = OauthClient::factory()->confidential('very-secret-1')->create();
         $user = $this->login();
 
+        [$verifier, $challenge] = $this->pkce();
+
         $location = $this->get('/oauth/authorize?'.http_build_query([
             'response_type' => 'code',
             'client_id' => $client->client_id,
             'redirect_uri' => 'https://client.example/callback',
             'scope' => 'openid',
-            'code_challenge' => 'abc',
-            'code_challenge_method' => 'plain',
+            'code_challenge' => $challenge,
+            'code_challenge_method' => 'S256',
         ]))->headers->get('Location');
         parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
 
@@ -225,7 +279,7 @@ class AuthorizationCodeFlowTest extends TestCase
             'client_id' => $client->client_id,
             'client_secret' => 'very-secret-1',
             'code' => $query['code'],
-            'code_verifier' => 'abc',
+            'code_verifier' => $verifier,
         ])->assertOk()->json('access_token');
 
         $this->withHeader('Authorization', 'Bearer '.$access)->getJson('/oauth/userinfo')->assertOk();
