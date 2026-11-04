@@ -1,0 +1,81 @@
+# syntax=docker/dockerfile:1.7
+#
+# work-report runtime image — php-fpm + nginx + supervisor, single container.
+#
+#   podman build -f deploy/Containerfile -t localhost/work-report:current .
+#
+# No Node stage: the UI is hand-written CSS plus a locally vendored Alpine build,
+# so nothing has to be compiled at build time and the image stays tiny.
+ARG PHP_VERSION=8.4
+
+###############################################################################
+# Stage 1 — composer dependencies (dev toolchain only for the vendor dir)
+###############################################################################
+FROM docker.io/library/composer:2 AS vendor
+
+USER root
+RUN apk add --no-cache --virtual .build $PHPIZE_DEPS libzip-dev libpng-dev freetype-dev libjpeg-turbo-dev \
+    && apk add --no-cache libzip libpng freetype libjpeg-turbo postgresql-libs icu-libs \
+    && apk add --no-cache --virtual .run libpq icu-dev oniguruma-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" zip gd pdo_pgsql intl bcmath opcache \
+    && apk del .build .run \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+# Resolution first so the layer is reused until the lock file actually changes.
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist \
+        --no-progress --classmap-authoritative
+
+COPY . .
+RUN rm -rf /app/.git /app/tests /app/deploy /app/tools /app/bootstrap/cache/*.php \
+    && composer dump-autoload --no-dev --classmap-authoritative --no-scripts \
+    && php artisan package:discover --ansi
+
+###############################################################################
+# Stage 2 — runtime
+###############################################################################
+FROM docker.io/library/php:${PHP_VERSION}-fpm-alpine AS runtime
+
+LABEL org.opencontainers.image.title="work-report" \
+      org.opencontainers.image.description="업무일보 — Jira-style work report with Excel export" \
+      org.opencontainers.image.source="https://github.com/orangepro2001/work-report"
+
+RUN apk add --no-cache nginx supervisor tzdata curl libzip libpng freetype libjpeg-turbo icu-libs oniguruma \
+    && apk add --no-cache --virtual .build $PHPIZE_DEPS libzip-dev libpng-dev freetype-dev \
+        libjpeg-turbo-dev postgresql-dev icu-dev oniguruma-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" pdo_pgsql zip gd intl bcmath opcache pcntl \
+    && apk del .build \
+    && rm -rf /var/cache/apk/*
+
+COPY deploy/php/php.ini /usr/local/etc/php/conf.d/99-work-report.ini
+COPY deploy/php/fpm-pool.conf /usr/local/etc/php-fpm.d/zz-work-report.conf
+COPY deploy/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY deploy/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
+COPY deploy/entrypoint.sh /usr/local/bin/entrypoint
+
+COPY --from=vendor --chown=root:root /app /app
+
+WORKDIR /app
+
+RUN mkdir -p /app/storage/framework/{cache/data,sessions,views} \
+             /app/storage/app/public /app/storage/logs /app/bootstrap/cache \
+    && chown -R nobody:nobody /app/storage /app/bootstrap/cache \
+    && chmod 0755 /usr/local/bin/entrypoint
+
+ENV APP_ENV=production \
+    APP_DEBUG=false \
+    LOG_CHANNEL=stderr \
+    WR_LISTEN=0.0.0.0:3560
+
+USER nobody
+
+EXPOSE 3560
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:3560/healthz || exit 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint"]
+CMD ["serve"]
