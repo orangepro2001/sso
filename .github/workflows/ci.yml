@@ -87,7 +87,7 @@ jobs:
 
           APP_KEY="base64:$(head -c 32 /dev/urandom | base64)"
 
-          podman run -d --name sso-ci --network sso-ci --read-only \
+          podman run -d --name sso-ci --network sso-ci -p 3550:3550 --read-only \
             --tmpfs /tmp:rw,mode=1777 \
             --tmpfs /app/storage:rw,mode=1777 \
             --tmpfs /app/bootstrap/cache:rw,mode=1777 \
