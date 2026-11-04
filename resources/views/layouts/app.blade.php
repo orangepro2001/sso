@@ -22,7 +22,9 @@
     </nav>
     <span class="spacer"></span>
     @auth('admin')
-        <span class="muted small">{{ auth('admin')->user()->email }}</span>
+        <a class="muted small" href="{{ route('admin.account') }}" style="text-decoration:none">
+            {{ auth('admin')->user()->email }}
+        </a>
         <form method="post" action="{{ route('admin.logout') }}">
             @csrf
             <button class="link" type="submit">Sign out</button>

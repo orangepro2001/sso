@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\BlacklistController;
 use App\Http\Controllers\Admin\ClientController;
@@ -70,5 +71,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('tokens/{token}/revoke', [TokenController::class, 'revoke'])->name('tokens.revoke');
 
         Route::get('audit', [DashboardController::class, 'audit'])->name('audit.index');
+
+        // Self-service for the signed-in administrator.
+        Route::get('account', [AccountController::class, 'edit'])->name('account');
+        Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password');
+        Route::put('account/name', [AccountController::class, 'updateName'])->name('account.name');
     });
 });
