@@ -69,12 +69,20 @@ class AuthorizeController extends Controller
         $user = Auth::guard('web')->user();
         if ($user === null || ! $user->isActive()) {
             // Keep the request around; the login form posts back and we resume here.
+            // response_type has to be parked as well: the replay goes through the
+            // same validation, and without it the client gets
+            // "unsupported_response_type" after a perfectly good sign-in.
             $request->session()->put('oauth.pending', $request->only([
-                'client_id', 'redirect_uri', 'scope', 'state', 'code_challenge', 'code_challenge_method', 'nonce',
+                'response_type', 'client_id', 'redirect_uri', 'scope', 'state',
+                'code_challenge', 'code_challenge_method', 'nonce',
             ]));
 
             return redirect()->guest(route('login'));
         }
+
+        // The request has been served: drop the parked copy, otherwise the next
+        // plain sign-in would resume a stale client request instead of going home.
+        $request->session()->forget('oauth.pending');
 
         $plain = 'sso_c_'.Str::random(48);
         OauthAuthCode::create([
