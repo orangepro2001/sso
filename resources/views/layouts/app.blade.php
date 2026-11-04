@@ -31,7 +31,7 @@
         </form>
     @endauth
     @auth('web')
-        <span class="muted small">{{ auth('web')->user()->email }}</span>
+        <span class="muted small">{{ auth('web')->user()->username }}</span>
         <form method="post" action="{{ route('logout') }}">
             @csrf
             <button class="link" type="submit">Sign out</button>

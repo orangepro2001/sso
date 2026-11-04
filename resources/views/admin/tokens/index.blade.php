@@ -26,7 +26,7 @@
                             @if ($token->guestDevice)
                                 <a href="{{ route('admin.devices.show', $token->guestDevice) }}">{{ $token->guestDevice->device_id }}</a>
                             @elseif ($token->user)
-                                {{ $token->user->email }}
+                                {{ $token->user->username }}
                             @else
                                 {{ $token->client_id }}
                             @endif

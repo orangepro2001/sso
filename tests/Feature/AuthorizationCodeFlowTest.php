@@ -27,11 +27,11 @@ class AuthorizationCodeFlowTest extends TestCase
     private function login(): User
     {
         $user = User::factory()->create([
-            'email' => 'plain@example.test',
+            'username' => 'plainuser',
             'password' => 'user-password-1',
         ]);
 
-        $this->post('/login', ['email' => 'plain@example.test', 'password' => 'user-password-1'])
+        $this->post('/login', ['username' => 'plainuser', 'password' => 'user-password-1'])
             ->assertRedirect();
 
         return $user;
@@ -47,7 +47,7 @@ class AuthorizationCodeFlowTest extends TestCase
             'response_type' => 'code',
             'client_id' => $client->client_id,
             'redirect_uri' => 'https://client.example/callback',
-            'scope' => 'openid profile email offline_access',
+            'scope' => 'openid profile offline_access',
             'state' => 'xyz',
             'code_challenge' => $challenge,
             'code_challenge_method' => 'S256',
@@ -70,7 +70,7 @@ class AuthorizationCodeFlowTest extends TestCase
 
         $token->assertOk()
             ->assertJsonPath('token_type', 'Bearer')
-            ->assertJsonPath('scope', 'openid profile email offline_access');
+            ->assertJsonPath('scope', 'openid profile offline_access');
 
         $this->assertSame(604800, $token->json('expires_in'));
         $this->assertNotEmpty($token->json('refresh_token'));

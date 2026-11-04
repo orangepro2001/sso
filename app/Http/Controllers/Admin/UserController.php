@@ -27,7 +27,7 @@ class UserController extends Controller
 
         $users = User::query()
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
-                ->where('email', 'ilike', '%'.$search.'%')
+                ->where('username', 'ilike', '%'.$search.'%')
                 ->orWhere('name', 'ilike', '%'.$search.'%')))
             ->latest('id')
             ->paginate(25)
@@ -43,16 +43,18 @@ class UserController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->normaliseUsername($request);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'string', 'email', 'max:190', 'unique:users,email'],
+            'username' => $this->usernameRules(),
             'password' => ['required', 'string', Password::min(12)],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $user = User::create([
             'name' => $data['name'],
-            'email' => $data['email'],
+            'username' => $data['username'],
             'password' => $data['password'],
             'status' => User::STATUS_ACTIVE,
             'note' => $data['note'] ?? null,
@@ -60,11 +62,11 @@ class UserController extends Controller
         ]);
 
         $this->audit->log('admin.user.created', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
-            'email' => $user->email,
+            'username' => $user->username,
         ], $request);
 
         return redirect()->route('admin.users.index')
-            ->with('status', "User {$user->email} created.");
+            ->with('status', "User {$user->username} created.");
     }
 
     public function edit(User $user): View
@@ -74,9 +76,11 @@ class UserController extends Controller
 
     public function update(Request $request, User $user): RedirectResponse
     {
+        $this->normaliseUsername($request);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'string', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
+            'username' => $this->usernameRules($user->id),
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_DISABLED])],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -84,10 +88,10 @@ class UserController extends Controller
         $user->fill($data)->save();
 
         $this->audit->log('admin.user.updated', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
-            'email' => $user->email, 'status' => $user->status,
+            'username' => $user->username, 'status' => $user->status,
         ], $request);
 
-        return redirect()->route('admin.users.index')->with('status', "User {$user->email} updated.");
+        return redirect()->route('admin.users.index')->with('status', "User {$user->username} updated.");
     }
 
     public function resetPassword(Request $request, User $user): RedirectResponse
@@ -99,9 +103,46 @@ class UserController extends Controller
         $user->forceFill(['password' => $data['password']])->save();
 
         $this->audit->log('admin.user.password_reset', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
-            'email' => $user->email,
+            'username' => $user->username,
         ], $request);
 
         return redirect()->route('admin.users.edit', $user)->with('status', 'Password replaced.');
+    }
+
+    /**
+     * Lower-case the username before validating it, so that what the administrator
+     * typed is checked (and echoed back on error) in the same shape it is stored.
+     * Without this, "MiXeD.Case" is rejected by the lower-case-only pattern even
+     * though it is a perfectly good username.
+     */
+    private function normaliseUsername(Request $request): void
+    {
+        $value = $request->input('username');
+        if (is_string($value)) {
+            $request->merge(['username' => strtolower(trim($value))]);
+        }
+    }
+
+    /**
+     * Usernames are the login identifier, so they are constrained tightly: ASCII,
+     * lower-case, no leading/trailing punctuation, unique.
+     *
+     * @return array<int, mixed>
+     */
+    private function usernameRules(?int $ignoreId = null): array
+    {
+        $unique = Rule::unique('users', 'username');
+        if ($ignoreId !== null) {
+            $unique->ignore($ignoreId);
+        }
+
+        return [
+            'required',
+            'string',
+            'min:3',
+            'max:64',
+            'regex:'.User::USERNAME_PATTERN,
+            $unique,
+        ];
     }
 }

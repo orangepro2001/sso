@@ -49,7 +49,7 @@ class PendingAuthorizeResumeTest extends TestCase
     {
         $client = OauthClient::factory()->create();
         $user = User::factory()->create([
-            'email' => 'resume@example.test',
+            'username' => 'resumeuser',
             'password' => 'resume-password-1',
         ]);
         [$verifier, $challenge] = $this->pkce();
@@ -70,7 +70,7 @@ class PendingAuthorizeResumeTest extends TestCase
 
         // 2. Sign in: the controller sends the browser back to /oauth/authorize.
         $login = $this->post('/login', [
-            'email' => 'resume@example.test',
+            'username' => 'resumeuser',
             'password' => 'resume-password-1',
         ]);
 

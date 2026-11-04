@@ -4,7 +4,7 @@
 
 @section('content')
     <h1>{{ $user->name }}</h1>
-    <p class="lead mono">{{ $user->email }} · created {{ $user->created_at?->format('Y-m-d') }}</p>
+    <p class="lead mono">{{ $user->username }} · created {{ $user->created_at?->format('Y-m-d') }}</p>
 
     <form class="card" method="post" action="{{ route('admin.users.update', $user) }}">
         @csrf
@@ -13,8 +13,14 @@
         <label for="name">Display name</label>
         <input id="name" type="text" name="name" value="{{ old('name', $user->name) }}" required>
 
-        <label for="email">E-mail</label>
-        <input id="email" type="email" name="email" value="{{ old('email', $user->email) }}" required>
+        <label for="username">Username (used to sign in)</label>
+        <input id="username" type="text" name="username" value="{{ old('username', $user->username) }}" required
+               autocomplete="off" autocapitalize="none" spellcheck="false">
+        <p class="small muted" style="margin:6px 0 0">
+            Changing this changes what the user types at the sign-in prompt. Issued
+            tokens stay valid; their <span class="mono">preferred_username</span> claim
+            keeps the old value until they refresh.
+        </p>
 
         <label for="status">Status</label>
         <select id="status" name="status">

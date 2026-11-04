@@ -48,8 +48,8 @@ class AdminConsoleTest extends TestCase
     {
         $this->admin();
 
-        $this->post('/login', ['email' => 'boss@example.test', 'password' => 'boss-password-1'])
-            ->assertSessionHasErrors('email');
+        $this->post('/login', ['username' => 'boss@example.test', 'password' => 'boss-password-1'])
+            ->assertSessionHasErrors('username');
 
         $this->assertGuest('web');
         $this->assertGuest('admin');
@@ -57,9 +57,10 @@ class AdminConsoleTest extends TestCase
 
     public function test_a_user_account_does_not_sign_in_on_the_console_page(): void
     {
-        User::factory()->create(['email' => 'plain@example.test', 'password' => 'a-very-good-password']);
+        User::factory()->create(['username' => 'plainuser', 'password' => 'a-very-good-password']);
 
-        $this->post('/admin/login', ['email' => 'plain@example.test', 'password' => 'a-very-good-password'])
+        // A user account is not an admin account, even with the right password.
+        $this->post('/admin/login', ['email' => 'plainuser', 'password' => 'a-very-good-password'])
             ->assertSessionHasErrors('email');
 
         $this->assertGuest('admin');
@@ -85,39 +86,90 @@ class AdminConsoleTest extends TestCase
 
         $this->post('/admin/users', [
             'name' => 'New Person',
-            'email' => 'new@example.test',
+            'username' => 'newperson',
             'password' => 'a-very-good-password',
         ])->assertRedirect(route('admin.users.index'));
 
-        $user = User::query()->where('email', 'new@example.test')->firstOrFail();
+        $user = User::query()->where('username', 'newperson')->firstOrFail();
         $this->assertSame(User::STATUS_ACTIVE, $user->status);
+        // Three fields, no e-mail anywhere.
+        $this->assertArrayNotHasKey('email', $user->getAttributes());
 
-        $this->post('/login', ['email' => 'new@example.test', 'password' => 'a-very-good-password'])
+        $this->post('/login', ['username' => 'newperson', 'password' => 'a-very-good-password'])
             ->assertRedirect();
         $this->assertAuthenticatedAs($user, 'web');
     }
 
-    public function test_duplicate_emails_are_rejected(): void
+    public function test_a_username_is_normalised_to_lower_case_and_sign_in_ignores_case(): void
     {
-        User::factory()->create(['email' => 'taken@example.test']);
+        $this->signIn();
+
+        $this->post('/admin/users', [
+            'name' => 'Case Test',
+            'username' => 'MiXeD.Case-1',
+            'password' => 'a-very-good-password',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('users', ['username' => 'mixed.case-1']);
+
+        $this->post('/login', ['username' => 'MIXED.case-1', 'password' => 'a-very-good-password'])
+            ->assertRedirect();
+        $this->assertAuthenticated('web');
+    }
+
+    public function test_username_format_and_uniqueness_are_enforced(): void
+    {
+        User::factory()->create(['username' => 'taken']);
+        $this->signIn();
+
+        // duplicate
+        $this->post('/admin/users', [
+            'name' => 'Dup', 'username' => 'taken', 'password' => 'a-very-good-password',
+        ])->assertSessionHasErrors('username');
+
+        // too short, illegal characters, leading punctuation
+        foreach (['ab', 'has space', 'bad!char', '.leading'] as $bad) {
+            $this->post('/admin/users', [
+                'name' => 'Bad', 'username' => $bad, 'password' => 'a-very-good-password',
+            ])->assertSessionHasErrors('username');
+        }
+    }
+
+    public function test_a_user_keeps_their_username_when_uniqueness_is_ignored_on_update(): void
+    {
+        $user = User::factory()->create(['username' => 'stable']);
+        $this->signIn();
+
+        $this->put("/admin/users/{$user->id}", [
+            'name' => 'Renamed',
+            'username' => 'stable',
+            'status' => User::STATUS_ACTIVE,
+        ])->assertRedirect(route('admin.users.index'));
+
+        $this->assertSame('Renamed', $user->fresh()->name);
+    }
+
+    public function test_duplicate_usernames_are_rejected(): void
+    {
+        User::factory()->create(['username' => 'taken']);
         $this->signIn();
 
         $this->post('/admin/users', [
             'name' => 'Dup',
-            'email' => 'taken@example.test',
+            'username' => 'taken',
             'password' => 'a-very-good-password',
-        ])->assertSessionHasErrors('email');
+        ])->assertSessionHasErrors('username');
     }
 
     public function test_a_disabled_user_cannot_sign_in(): void
     {
         User::factory()->disabled()->create([
-            'email' => 'off@example.test',
+            'username' => 'off',
             'password' => 'a-very-good-password',
         ]);
 
-        $this->post('/login', ['email' => 'off@example.test', 'password' => 'a-very-good-password'])
-            ->assertSessionHasErrors('email');
+        $this->post('/login', ['username' => 'off', 'password' => 'a-very-good-password'])
+            ->assertSessionHasErrors('username');
         $this->assertGuest('web');
     }
 
@@ -138,10 +190,10 @@ class AdminConsoleTest extends TestCase
 
     public function test_remember_me_works_for_a_user(): void
     {
-        User::factory()->create(['email' => 'kept@example.test', 'password' => 'a-very-good-password']);
+        User::factory()->create(['username' => 'keptuser', 'password' => 'a-very-good-password']);
 
         $this->post('/login', [
-            'email' => 'kept@example.test',
+            'username' => 'keptuser',
             'password' => 'a-very-good-password',
             'remember' => '1',
         ])->assertRedirect();
@@ -186,7 +238,7 @@ class AdminConsoleTest extends TestCase
 
         $this->post('/admin/users', [
             'name' => 'Audited',
-            'email' => 'audited@example.test',
+            'username' => 'audited',
             'password' => 'a-very-good-password',
         ]);
 

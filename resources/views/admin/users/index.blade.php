@@ -9,7 +9,7 @@
     <div class="row" style="margin-bottom:16px">
         <a class="btn primary" href="{{ route('admin.users.create') }}">New user</a>
         <form method="get" action="{{ route('admin.users.index') }}" class="row" style="margin-left:auto">
-            <input type="text" name="q" value="{{ $search }}" placeholder="Search name or e-mail" style="width:260px">
+            <input type="text" name="q" value="{{ $search }}" placeholder="Search name or username" style="width:260px">
             <button type="submit">Search</button>
         </form>
     </div>
@@ -19,12 +19,12 @@
             <p class="empty">No users yet.</p>
         @else
             <table>
-                <thead><tr><th>Name</th><th>E-mail</th><th>Status</th><th>Last login</th><th>Created</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>Username</th><th>Status</th><th>Last login</th><th>Created</th><th></th></tr></thead>
                 <tbody>
                 @foreach ($users as $user)
                     <tr>
                         <td>{{ $user->name }}</td>
-                        <td class="mono small">{{ $user->email }}</td>
+                        <td class="mono small">{{ $user->username }}</td>
                         <td>
                             @if ($user->isActive())
                                 <span class="badge ok">active</span>

@@ -56,12 +56,8 @@ class UserInfoController extends Controller
         $body = ['sub' => (string) $user->id, 'subject_type' => 'user', 'scope' => implode(' ', $scopes)];
         if (in_array('profile', $scopes, true)) {
             $body['name'] = $user->name;
-            $body['preferred_username'] = $user->email;
+            $body['preferred_username'] = $user->username;
             $body['created_at'] = $user->created_at?->getTimestamp();
-        }
-        if (in_array('email', $scopes, true)) {
-            $body['email'] = $user->email;
-            $body['email_verified'] = true;
         }
 
         return response()->json($body);

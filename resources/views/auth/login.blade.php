@@ -10,8 +10,9 @@
 
     <form class="card" method="post" action="{{ route('login.store') }}">
         @csrf
-        <label for="email">E-mail</label>
-        <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username">
+        <label for="username">Username</label>
+        <input id="username" type="text" name="username" value="{{ old('username') }}" required autofocus
+               autocomplete="username" autocapitalize="none" spellcheck="false">
 
         <label for="password">Password</label>
         <input id="password" type="password" name="password" required autocomplete="current-password">

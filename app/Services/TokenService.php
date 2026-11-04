@@ -263,7 +263,7 @@ class TokenService
         ];
 
         if ($record->user !== null) {
-            $body['email'] = $record->user->email;
+            $body['username'] = $record->user->username;
             $body['name'] = $record->user->name;
         }
 
@@ -393,11 +393,8 @@ class TokenService
         $claims = ['sub' => (string) $user->id];
         if (in_array('profile', $scopes, true)) {
             $claims['name'] = $user->name;
+            $claims['preferred_username'] = $user->username;
             $claims['created_at'] = $user->created_at?->getTimestamp();
-        }
-        if (in_array('email', $scopes, true)) {
-            $claims['email'] = $user->email;
-            $claims['email_verified'] = true;
         }
 
         return $claims;

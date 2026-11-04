@@ -69,7 +69,6 @@ return [
     'scopes' => [
         'openid' => 'OpenID Connect subject identity',
         'profile' => 'Display name and account creation time',
-        'email' => 'E-mail address',
         'db:read' => 'Read-only database access',
         'db:write' => 'Read-write database access',
         'offline_access' => 'Allows the refresh_token grant',

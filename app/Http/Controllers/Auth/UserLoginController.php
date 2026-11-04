@@ -28,14 +28,18 @@ class UserLoginController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $credentials = $request->validate([
-            'email' => ['required', 'string', 'email'],
+            'username' => ['required', 'string', 'max:64'],
             'password' => ['required', 'string'],
         ]);
 
-        $key = 'login:'.strtolower($credentials['email']).'|'.$request->ip();
+        // Usernames are stored lower-case; the lookup must not care about what the
+        // person typed.
+        $credentials['username'] = strtolower(trim($credentials['username']));
+
+        $key = 'login:'.$credentials['username'].'|'.$request->ip();
         if (RateLimiter::tooManyAttempts($key, 10)) {
             throw ValidationException::withMessages([
-                'email' => 'Too many attempts. Try again in '.RateLimiter::availableIn($key).' seconds.',
+                'username' => 'Too many attempts. Try again in '.RateLimiter::availableIn($key).' seconds.',
             ]);
         }
 
@@ -43,11 +47,11 @@ class UserLoginController extends Controller
 
         if (! Auth::guard('web')->attempt($credentials, $remember)) {
             RateLimiter::hit($key, 300);
-            $this->audit->log('login.failed', 'anonymous', $credentials['email'], 'user', $credentials['email'], [
+            $this->audit->log('login.failed', 'anonymous', $credentials['username'], 'user', $credentials['username'], [
                 'guard' => 'web',
             ], $request);
 
-            throw ValidationException::withMessages(['email' => 'These credentials do not match our records.']);
+            throw ValidationException::withMessages(['username' => 'These credentials do not match our records.']);
         }
 
         /** @var User $user */
@@ -56,7 +60,7 @@ class UserLoginController extends Controller
             Auth::guard('web')->logout();
             $this->audit->log('login.denied', 'user', $user->id, 'user', $user->id, ['reason' => 'disabled'], $request);
 
-            throw ValidationException::withMessages(['email' => 'This account has been disabled.']);
+            throw ValidationException::withMessages(['username' => 'This account has been disabled.']);
         }
 
         RateLimiter::clear($key);

@@ -35,7 +35,7 @@ class DiscoveryController extends Controller
             'id_token_signing_alg_values_supported' => ['RS256'],
             'token_endpoint_auth_methods_supported' => ['client_secret_post', 'client_secret_basic', 'none'],
             'code_challenge_methods_supported' => ['S256'],
-            'claims_supported' => ['sub', 'iss', 'aud', 'exp', 'iat', 'nbf', 'jti', 'scope', 'name', 'email', 'email_verified'],
+            'claims_supported' => ['sub', 'iss', 'aud', 'exp', 'iat', 'nbf', 'jti', 'scope', 'name', 'preferred_username'],
             'service_documentation' => $issuer.'/../docs/DESIGN.md',
         ];
 

@@ -30,6 +30,20 @@ All paths are relative to the public mount point (`SSO_ISSUER`, e.g. `https://ho
 | `GET` | `/healthz` | liveness |
 | `GET` | `/admin` | console (session auth, administrators only) |
 
+## Identities
+
+Two separate account spaces, on purpose:
+
+| Space | Signs in with | Where | Fields |
+| --- | --- | --- | --- |
+| User (token subject) | username + password | `/sso/login` | display name, username, password |
+| Administrator (console) | e-mail + password | `/sso/admin/login` | name, e-mail, password |
+
+A user account carries no e-mail address: the `email` scope and the `email` /
+`email_verified` claims were removed with it. `profile` now yields `name` and
+`preferred_username` (the username), which is what an OIDC client should read
+anyway.
+
 ## Token policy
 
 | Subject | Access token | Lifetime | Refresh |
@@ -111,7 +125,10 @@ Installed as `sso-prune.timer` (nightly, `Persistent=true`) by `install.sh`.
 
 `/admin` — administrators only, no registration route exists anywhere in the app.
 
-- **Users** — create, disable, replace password. Disabling kills live tokens immediately.
+- **Users** — create, disable, replace password. A user has exactly three fields:
+  display name, **username** (the sign-in identifier) and password. There is no
+  e-mail address and therefore no verification mail to send. Disabling kills live
+  tokens immediately.
 - **Clients** — register OAuth clients (public/PKCE or confidential with a secret shown
   once); registering a client *is* the consent step, so users never see a consent screen.
 - **Guest devices** — the a-posteriori review list: first/last seen, IP, user agent,
