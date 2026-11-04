@@ -1,0 +1,74 @@
+<?php
+
+use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\BlacklistController;
+use App\Http\Controllers\Admin\ClientController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DeviceController;
+use App\Http\Controllers\Admin\TokenController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Auth\UserLoginController;
+use App\Http\Controllers\HomeController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Console (session based) routes
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/', HomeController::class)->name('home');
+
+// End-user authentication, resumed by /oauth/authorize afterwards.
+Route::middleware('guest:web')->group(function () {
+    Route::get('login', [UserLoginController::class, 'show'])->name('login');
+    Route::post('login', [UserLoginController::class, 'store'])->name('login.store');
+});
+Route::post('logout', [UserLoginController::class, 'destroy'])->middleware('auth:web')->name('logout');
+
+/*
+|--------------------------------------------------------------------------
+| Administration
+|--------------------------------------------------------------------------
+| Closed shop: there is no registration route anywhere in this application.
+*/
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::middleware('guest:admin')->group(function () {
+        Route::get('login', [AuthController::class, 'show'])->name('login');
+        Route::post('login', [AuthController::class, 'store'])->name('login.store');
+    });
+
+    Route::middleware('admin')->group(function () {
+        Route::post('logout', [AuthController::class, 'destroy'])->name('logout');
+
+        Route::get('/', DashboardController::class)->name('dashboard');
+
+        Route::get('users', [UserController::class, 'index'])->name('users.index');
+        Route::get('users/create', [UserController::class, 'create'])->name('users.create');
+        Route::post('users', [UserController::class, 'store'])->name('users.store');
+        Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::post('users/{user}/password', [UserController::class, 'resetPassword'])->name('users.password');
+
+        Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
+        Route::get('clients/create', [ClientController::class, 'create'])->name('clients.create');
+        Route::post('clients', [ClientController::class, 'store'])->name('clients.store');
+        Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
+        Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+
+        Route::get('devices', [DeviceController::class, 'index'])->name('devices.index');
+        Route::get('devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
+        Route::post('devices/{device}/block', [DeviceController::class, 'block'])->name('devices.block');
+        Route::post('devices/{device}/unblock', [DeviceController::class, 'unblock'])->name('devices.unblock');
+        Route::post('devices/{device}/review', [DeviceController::class, 'review'])->name('devices.review');
+
+        Route::get('blacklist', [BlacklistController::class, 'index'])->name('blacklist.index');
+        Route::post('blacklist', [BlacklistController::class, 'store'])->name('blacklist.store');
+        Route::delete('blacklist/{entry}', [BlacklistController::class, 'destroy'])->name('blacklist.destroy');
+
+        Route::get('tokens', [TokenController::class, 'index'])->name('tokens.index');
+        Route::post('tokens/{token}/revoke', [TokenController::class, 'revoke'])->name('tokens.revoke');
+
+        Route::get('audit', [DashboardController::class, 'audit'])->name('audit.index');
+    });
+});

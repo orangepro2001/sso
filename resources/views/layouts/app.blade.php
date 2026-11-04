@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@yield('title', 'SSO') — {{ config('app.name') }}</title>
+    <link rel="stylesheet" href="{{ asset('assets/app.css') }}">
+</head>
+<body>
+<header class="top">
+    <span class="brand">SSO</span>
+    <nav>
+        @auth('admin')
+            <a href="{{ route('admin.dashboard') }}" @class(['active' => request()->routeIs('admin.dashboard')])>Dashboard</a>
+            <a href="{{ route('admin.users.index') }}" @class(['active' => request()->routeIs('admin.users.*')])>Users</a>
+            <a href="{{ route('admin.clients.index') }}" @class(['active' => request()->routeIs('admin.clients.*')])>Clients</a>
+            <a href="{{ route('admin.devices.index') }}" @class(['active' => request()->routeIs('admin.devices.*')])>Guest devices</a>
+            <a href="{{ route('admin.tokens.index') }}" @class(['active' => request()->routeIs('admin.tokens.*')])>Tokens</a>
+            <a href="{{ route('admin.blacklist.index') }}" @class(['active' => request()->routeIs('admin.blacklist.*')])>Blacklist</a>
+            <a href="{{ route('admin.audit.index') }}" @class(['active' => request()->routeIs('admin.audit.*')])>Audit</a>
+        @endauth
+    </nav>
+    <span class="spacer"></span>
+    @auth('admin')
+        <span class="muted small">{{ auth('admin')->user()->email }}</span>
+        <form method="post" action="{{ route('admin.logout') }}">
+            @csrf
+            <button class="link" type="submit">Sign out</button>
+        </form>
+    @endauth
+    @auth('web')
+        <span class="muted small">{{ auth('web')->user()->email }}</span>
+        <form method="post" action="{{ route('logout') }}">
+            @csrf
+            <button class="link" type="submit">Sign out</button>
+        </form>
+    @endauth
+</header>
+
+<main class="@yield('main-class')">
+    @if (session('status'))
+        <div class="flash ok">{{ session('status') }}</div>
+    @endif
+    @if (session('client_secret'))
+        <div class="flash key">
+            <strong>Client secret (shown once):</strong><br>
+            <code>{{ session('client_secret') }}</code>
+        </div>
+    @endif
+    @if ($errors->any())
+        <div class="flash bad">
+            @foreach ($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
+
+    @yield('content')
+</main>
+</body>
+</html>
