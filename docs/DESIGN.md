@@ -123,7 +123,23 @@ The service binds `0.0.0.0:3550` with no IP allow-list, per the requirement. Beh
 caddy it is also reachable directly on the host network; that is a documented
 consequence, not an oversight.
 
-## 10. What is not protected
+## 10. Findings from the independent review
+
+An external audit of this codebase (2026-11-04) turned up four defects that were
+fixed and are now regression-tested. Recording them, because they are the kind of
+thing that silently comes back:
+
+| # | Symptom | Root cause | Fix |
+| --- | --- | --- | --- |
+| 1 | Ticking "remember this browser" on the console login made the login itself fail (500) | `admins` had no `remember_token` column while the form offered the option | migration + test |
+| 2 | A public client could finish `/oauth/authorize` with no `code_challenge`, contradicting this document | the PKCE step treated "no challenge" as acceptable for every client type | PKCE now mandatory for public clients; only S256 accepted |
+| 3 | After a failed login the browser landed on a 404 | the root URL was forced *after* `StartSession`, so the session stored a prefix-less previous URL and `back()` replayed it | force the root before the session; also repair the stored URL on the way in and out |
+| 4 | A user who signed in to resume an interrupted authorization ended up on a client error page | `response_type` was not part of the parked request | park and replay the whole parameter set |
+
+Two further gaps (guest tokens growing without bound, guest rate limiting keyed by
+IP and therefore shared across a NAT) led to `sso:prune` and a device-keyed limit.
+
+## 11. What is not protected
 
 Honest list, so nobody assumes otherwise:
 
