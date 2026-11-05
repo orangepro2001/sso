@@ -12,6 +12,7 @@
 #
 # Tailnet access is separate and stays on /etc/caddy/Caddyfile (127.0.0.1:8080,
 # fronted by tailscale serve); that listener is unaffected by this file.
+
 {
 	# Bind only the NIC address: the public 210.207.108.170 is NATed to 172.22.0.29,
 	# while tailscaled owns :443 on the tailnet address, so a wildcard 0.0.0.0:443
@@ -45,6 +46,14 @@
 	header -Server
 
 	route {
+		# Legacy / hand-typed / bookmarked SSO paths without the mount point. The
+		# service only ever serves under /sso, so these used to 404 -- which is
+		# exactly what a person gets when they bookmark a console page or retype
+		# the URL. Bounce them to the real address instead (308 keeps the method, so
+		# a form POST survives the hop).
+		@legacy_sso path /login /logout /admin /admin/* /oauth/* /.well-known/openid-configuration /.well-known/jwks.json /healthz
+		redir @legacy_sso /sso{uri} 308
+
 		# SSO: public by design (the service binds every interface and does not
 		# restrict by IP). Its own /admin console is session-protected.
 		import prefix sso 127.0.0.1:3550

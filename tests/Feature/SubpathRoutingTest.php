@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Admin;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -48,6 +49,27 @@ class SubpathRoutingTest extends TestCase
         $this->withPublicHost()->get('/admin/login')
             ->assertOk()
             ->assertSee('action="https://sso.test/sso/admin/login"', false);
+    }
+
+    public function test_authenticated_console_pages_are_not_cacheable(): void
+    {
+        // A console page restored from the back/forward cache can carry links from
+        // an older build; no-store keeps the browser honest.
+        $admin = Admin::factory()->create();
+        $this->actingAs($admin, 'admin');
+
+        $response = $this->withPublicHost()->get('/admin');
+
+        $response->assertOk();
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+    }
+
+    public function test_the_sign_in_page_is_not_cacheable(): void
+    {
+        $response = $this->withPublicHost()->get('/login');
+
+        $response->assertOk();
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
     }
 
     public function test_the_home_page_links_carry_the_prefix(): void

@@ -24,8 +24,12 @@ class SecurityHeaders
             "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
         );
 
-        if ($request->is('oauth/*', '.well-known/*', 'userinfo', 'api/*')) {
-            $response->headers->set('Cache-Control', 'no-store');
+        // Token endpoints never cache, and neither do authenticated pages: a console
+        // page restored from the back/forward cache can carry links from an older
+        // build, which is how a stale "/admin/devices" without the /sso prefix
+        // reached a browser once.
+        if ($request->is('oauth/*', '.well-known/*', 'userinfo', 'api/*', 'admin/*', 'admin', 'login', 'logout')) {
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
             $response->headers->set('Pragma', 'no-cache');
         }
 

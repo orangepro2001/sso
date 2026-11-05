@@ -1,0 +1,118 @@
+# egg 统一反向代理（tailnet only）
+# tailscale serve 只做 TLS 终结：443 -> 127.0.0.1:8080，10000 -> 127.0.0.1:8081（8443 -> 3444 仍由 tailscale 直连，未接管）
+# 前缀语义与原 tailscale serve 一致：/x 与 /x/* 剥掉前缀后转发
+# 凭据来自 /etc/caddy/secrets.env（root 600）：CLAUDE_BASIC、OPENCODE_BASIC
+{
+	auto_https off
+	default_bind 127.0.0.1
+	admin localhost:2019
+	order replace after encode
+	servers {
+		trusted_proxies static 127.0.0.1/32 ::1/128
+	}
+}
+
+# 仅接受 tailscale serve 转来的 Host（放在 route 内第一条，保证最先执行）
+(hostguard) {
+	@badhost not host egg.tail9f7f1f.ts.net
+	respond @badhost "forbidden host" 403
+}
+
+(prefix) {
+	@{args[0]} path /{args[0]} /{args[0]}/*
+	handle @{args[0]} {
+		uri strip_prefix /{args[0]}
+		reverse_proxy {args[1]} {
+			flush_interval -1
+		}
+	}
+}
+
+http://:8080 {
+	log {
+		output file /var/log/caddy/egg-access.log
+		format json
+	}
+	route {
+		import hostguard
+
+		# Same legacy-path correction as the public listener: the service only
+		# serves under /sso, so bare console/oauth URLs get bounced instead of 404.
+		@legacy_sso path /login /logout /admin /admin/* /oauth/* /.well-known/openid-configuration /.well-known/jwks.json /healthz
+		redir @legacy_sso /sso{uri} 308
+
+		# DeepSeek Harness（原 tailscale serve /dsh）
+		import prefix dsh 127.0.0.1:3080
+		# DSH Mobile 配对页（agent-proxy 自带功能，移到 :8082 只做这一件事）
+		handle /qrcode* {
+			reverse_proxy 127.0.0.1:8082
+		}
+
+		# Pi（原 agent-proxy /pi/ -> nginx :8194 sub_filter -> pi-web-ui :8787）
+		redir /pi /pi/ 301
+		handle_path /pi/* {
+			uri path_regexp ^/assets-pi2/ /assets/
+			replace {
+				match {
+					header Content-Type text/html*
+					header Content-Type text/javascript*
+				}
+				"\"/assets/" "\"/pi/assets-pi2/"
+				"\"/favicon.svg" "\"/pi/favicon.svg"
+				"function(e){return`/`+e}" "function(e){return`/pi/`+e.replace(`assets/`,`assets-pi2/`)}"
+			}
+			reverse_proxy 127.0.0.1:8787 {
+				header_up -Accept-Encoding
+				flush_interval -1
+			}
+		}
+
+		# Claude Harness：注入 Basic 认证（原 nginx :8766 的做法），访问控制交给 tailnet
+		@claude path /claude /claude/*
+		handle @claude {
+			uri strip_prefix /claude
+			reverse_proxy 127.0.0.1:8765 {
+				header_up Authorization "Basic {$CLAUDE_BASIC}"
+				flush_interval -1
+			}
+		}
+
+		import prefix cc 127.0.0.1:3470
+		import prefix codex 127.0.0.1:8767
+		import prefix home 127.0.0.1:3480
+		import prefix teach 127.0.0.1:8093
+		import prefix release 127.0.0.1:18790
+		import prefix sso 127.0.0.1:3550
+
+		# llm-mcp：保留 /mcp 前缀
+		@mcp path /mcp /mcp/*
+		handle @mcp {
+			reverse_proxy 127.0.0.1:8790 {
+				flush_interval -1
+			}
+		}
+
+		handle / {
+			header Content-Type "text/html; charset=utf-8"
+			respond `<!doctype html><meta charset=utf-8><title>egg</title><ul>
+<li><a href="/dsh/">DeepSeek Harness</a></li><li><a href="/claude/">Claude Harness</a></li>
+<li><a href="/pi/">Pi</a></li><li><a href="/codex/">Codex Harness</a></li><li><a href="/cc/">ccpanel</a></li>
+<li><a href="/home/">Home Portal</a></li><li><a href="/teach/">AFVI Teach</a></li><li><a href="/release/">Release</a></li>
+<li><a href="/qrcode">DSH 配对</a></li><li><a href="https://egg.tail9f7f1f.ts.net:10000/">OpenCode</a></li></ul>` 200
+		}
+		handle {
+			respond "404 page not found" 404
+		}
+	}
+}
+
+# OpenCode（不支持子路径，独立端口 10000）
+http://:8081 {
+	route {
+		import hostguard
+		reverse_proxy 127.0.0.1:4096 {
+			header_up Authorization "Basic {$OPENCODE_BASIC}"
+			flush_interval -1
+		}
+	}
+}
