@@ -8,7 +8,9 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DeviceController;
 use App\Http\Controllers\Admin\TokenController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\InviteController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\UserLoginController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +29,18 @@ Route::middleware('guest:web')->group(function () {
     Route::post('login', [UserLoginController::class, 'store'])->name('login.store');
 });
 Route::post('logout', [UserLoginController::class, 'destroy'])->middleware('auth:web')->name('logout');
+
+// Closed registration, with one door: an administrator-issued code. The code in the
+// URL *is* the credential, so these are anonymous — and rate limited for the same
+// reason the reset links are.
+Route::get('register/{code}', [RegistrationController::class, 'show'])
+    ->middleware('guest:web')
+    ->middleware('throttle:30,1')
+    ->name('register');
+Route::post('register/{code}', [RegistrationController::class, 'store'])
+    ->middleware('guest:web')
+    ->middleware('throttle:10,1')
+    ->name('register.store');
 
 // Password reset links. The token in the URL is the credential, so these are open
 // to anonymous visitors; the page itself refuses unknown/expired/spent tokens.
@@ -68,6 +82,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('clients', [ClientController::class, 'store'])->name('clients.store');
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
         Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+
+        Route::get('invites', [InviteController::class, 'index'])->name('invites.index');
+        Route::post('invites', [InviteController::class, 'store'])->name('invites.store');
+        Route::delete('invites/{invite}', [InviteController::class, 'destroy'])->name('invites.destroy');
 
         Route::get('devices', [DeviceController::class, 'index'])->name('devices.index');
         Route::get('devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
