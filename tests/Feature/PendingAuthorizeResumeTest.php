@@ -65,7 +65,9 @@ class PendingAuthorizeResumeTest extends TestCase
             'code_challenge_method' => 'S256',
         ]));
 
-        $first->assertRedirect(route('login'));
+        // The redirect now carries the requesting client's name as a query param.
+        $first->assertRedirect();
+        $this->assertStringContainsString('/login', (string) $first->headers->get('Location'));
         $this->assertNotNull(session('oauth.pending'));
 
         // 2. Sign in: the controller sends the browser back to /oauth/authorize.

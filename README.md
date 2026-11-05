@@ -34,10 +34,17 @@ All paths are relative to the public mount point (`SSO_ISSUER`, e.g. `https://ho
 
 Two separate account spaces, on purpose:
 
-| Space | Signs in with | Where | Fields |
-| --- | --- | --- | --- |
-| User (token subject) | username + password | `/sso/login` | display name, username, password |
-| Administrator (console) | e-mail + password | `/sso/admin/login` | name, e-mail, password |
+| Space | Signs in with | Where | Cookie | Fields |
+| --- | --- | --- | --- | --- |
+| User (token subject) | username + password | `/sso/login` | `sso_session` | display name, username, password |
+| Administrator (console) | e-mail + password | `/sso/admin/login` | `sso_admin_session` | name, e-mail, password |
+
+The two use **separate session cookies**, so "signed in" is never ambiguous:
+being signed in to the console is not a client identity, and signing out of one
+does not sign out of the other. When a client sends a browser to
+`/oauth/authorize` that has no *user* session, the sign-in page names the
+application and says console accounts cannot be used — instead of showing a bare
+login form that invites the person to type their console credentials.
 
 A user account carries no e-mail address: the `email` scope and the `email` /
 `email_verified` claims were removed with it. `profile` now yields `name` and

@@ -20,9 +20,13 @@ class UserLoginController extends Controller
 {
     public function __construct(private readonly AuditLogger $audit) {}
 
-    public function show(): View
+    public function show(Request $request): View
     {
-        return view('auth.login');
+        return view('auth.login', [
+            // Set when /oauth/authorize bounced here: tells the person which
+            // application is waiting, instead of an unexplained login form.
+            'requestingClient' => trim((string) $request->query('client', '')) ?: null,
+        ]);
     }
 
     public function store(Request $request): RedirectResponse

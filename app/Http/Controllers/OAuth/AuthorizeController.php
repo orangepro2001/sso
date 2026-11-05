@@ -77,7 +77,10 @@ class AuthorizeController extends Controller
                 'code_challenge', 'code_challenge_method', 'nonce',
             ]));
 
-            return redirect()->guest(route('login'));
+            // Name the requesting client on the sign-in page: the person may well
+            // have a console session open, and the console session is deliberately
+            // not a client identity.
+            return redirect()->guest(route('login', ['client' => $client->name]));
         }
 
         // The request has been served: drop the parked copy, otherwise the next
