@@ -4,6 +4,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'SSO') — {{ config('app.name') }}</title>
+    <meta name="color-scheme" content="light dark">
+
+    {{-- Apply the stored theme before first paint: a dark preference must not flash
+         white, and the same snippet exists in every app (docs/design-system.md). --}}
+    <script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('wr-theme');
+                if (stored === 'light' || stored === 'dark') {
+                    document.documentElement.dataset.theme = stored;
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="stylesheet" href="{{ asset('assets/theme.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/app.css') }}">
 </head>
 <body>
@@ -22,6 +37,11 @@
         @endauth
     </nav>
     <span class="spacer"></span>
+
+    {{-- auto → light → dark → auto; the OS preference is the default. --}}
+    <button class="theme-toggle" type="button" data-theme-toggle
+            title="Theme: auto / light / dark" aria-label="Toggle theme">◐</button>
+
     @auth('admin')
         <a class="muted small" href="{{ route('admin.account') }}" style="text-decoration:none">
             {{ auth('admin')->user()->email }}
@@ -77,5 +97,37 @@
 
     @yield('content')
 </main>
+<script>
+/* The toggle contract from docs/design-system.md: auto → light → dark → auto. */
+(function () {
+    var button = document.querySelector('[data-theme-toggle]');
+    if (!button) return;
+
+    var order = ['auto', 'light', 'dark'];
+    var label = { auto: '◐', light: '☀', dark: '☾' };
+
+    function current() {
+        try { return localStorage.getItem('wr-theme') || 'auto'; } catch (e) { return 'auto'; }
+    }
+
+    function apply(theme) {
+        if (theme === 'auto') {
+            delete document.documentElement.dataset.theme;
+            try { localStorage.removeItem('wr-theme'); } catch (e) {}
+        } else {
+            document.documentElement.dataset.theme = theme;
+            try { localStorage.setItem('wr-theme', theme); } catch (e) {}
+        }
+        button.textContent = label[theme];
+        button.title = 'Theme: ' + theme;
+    }
+
+    button.textContent = label[current()];
+    button.addEventListener('click', function () {
+        var next = order[(order.indexOf(current()) + 1) % order.length];
+        apply(next);
+    });
+})();
+</script>
 </body>
 </html>

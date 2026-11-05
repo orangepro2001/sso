@@ -1,0 +1,153 @@
+/*
+ * wr-theme v1 — the shared visual grammar for our internal apps.
+ *
+ * CANONICAL SOURCE: work-report/public/assets/theme.css (docs/design-system.md).
+ * Copied verbatim; edit it there and copy again (this copy is the SSO console's).
+ * Copy this file into another application; do not fork the values. A second palette
+ * is how two apps stop looking like one product.
+ *
+ * Include it before the application's own stylesheet, put `data-theme` on <html>
+ * ("light" | "dark", absent = follow the OS) and style with the tokens only.
+ */
+
+:root {
+    /* Brand: one navy, one blue, and a 5% wash of the blue for surfaces. */
+    --navy: #1f3864;
+    --blue: #2f5597;
+    --blue-600: #2b4c86;
+    --blue-050: #eef3fb;
+
+    /* Ink: four steps, no more. Anything lighter than --faint is decoration. */
+    --ink: #1b2431;
+    --ink-2: #46536b;
+    --muted: #6b7788;
+    --faint: #98a2b3;
+
+    /* Surfaces: page, card, and the alternating row. */
+    --bg: #f4f6fa;
+    --surface: #ffffff;
+    --zebra: #f7f9fc;
+    --hair: #dfe4ec;
+    --hair-strong: #bfc9d9;
+
+    /* Semantics: a colour means one thing. Never use green for "info". */
+    --green: #2f7a4d;
+    --green-bg: #e7f4ec;
+    --amber: #a56a00;
+    --amber-bg: #fdf3e2;
+    --red: #b3261e;
+    --red-bg: #fceceb;
+    --slate-bg: #eef1f5;
+
+    /* Geometry and depth: three radii, three shadows. */
+    --radius: 10px;
+    --radius-sm: 6px;
+    --radius-pill: 999px;
+    --shadow-1: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .10);
+    --shadow-2: 0 4px 8px -2px rgba(16, 24, 40, .10), 0 2px 4px -2px rgba(16, 24, 40, .06);
+    --shadow-3: 0 12px 32px -8px rgba(16, 24, 40, .24);
+
+    /* Type: one sans stack, one mono, a 5-step scale. */
+    --font: "Pretendard", "Malgun Gothic", "맑은 고딕", -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --text-xs: 11px;
+    --text-sm: 12.5px;
+    --text-md: 14px;
+    --text-lg: 17px;
+    --text-xl: 22px;
+
+    /* Spacing: a 4px grid, named by use rather than size. */
+    --gap-1: 4px;
+    --gap-2: 8px;
+    --gap-3: 12px;
+    --gap-4: 16px;
+    --gap-5: 24px;
+    --gap-6: 32px;
+
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--blue) 30%, transparent);
+    --transition: 120ms ease;
+
+    color-scheme: light;
+}
+
+/* Dark is the same grammar with the lights off: navy-tinted surfaces, blue lifted
+   for contrast, semantic colours washed onto dark rather than reversed. */
+:root[data-theme="dark"] {
+    --navy: #cfe0ff;
+    --blue: #7aa7ef;
+    --blue-600: #9dbcff;
+    --blue-050: #1b2436;
+
+    --ink: #e8ecf3;
+    --ink-2: #c3cbd9;
+    --muted: #96a1b3;
+    --faint: #6f7b8d;
+
+    --bg: #10141b;
+    --surface: #161b24;
+    --zebra: #1a202a;
+    --hair: #242b36;
+    --hair-strong: #333c49;
+
+    --green: #62c98f;
+    --green-bg: #14261c;
+    --amber: #e0a83c;
+    --amber-bg: #2a2113;
+    --red: #ec7a72;
+    --red-bg: #2b1514;
+    --slate-bg: #1e242e;
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, .5);
+    --shadow-3: 0 12px 32px -8px rgba(0, 0, 0, .6);
+
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--blue) 40%, transparent);
+
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --navy: #cfe0ff;
+        --blue: #7aa7ef;
+        --blue-600: #9dbcff;
+        --blue-050: #1b2436;
+
+        --ink: #e8ecf3;
+        --ink-2: #c3cbd9;
+        --muted: #96a1b3;
+        --faint: #6f7b8d;
+
+        --bg: #10141b;
+        --surface: #161b24;
+        --zebra: #1a202a;
+        --hair: #242b36;
+        --hair-strong: #333c49;
+
+        --green: #62c98f;
+        --green-bg: #14261c;
+        --amber: #e0a83c;
+        --amber-bg: #2a2113;
+        --red: #ec7a72;
+        --red-bg: #2b1514;
+        --slate-bg: #1e242e;
+
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, .4);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, .5);
+        --shadow-3: 0 12px 32px -8px rgba(0, 0, 0, .6);
+
+        color-scheme: dark;
+    }
+}
+
+/*
+ * The theme toggle contract, shared by every app:
+ *   <button data-theme-toggle> … </button>
+ * `auto` follows the OS and is the default; the choice lives in localStorage under
+ * `wr-theme` and is applied before first paint by the inline snippet in the layout
+ * (a stored dark preference must not flash white).
+ */
+[data-theme-toggle] {
+    cursor: pointer;
+}
