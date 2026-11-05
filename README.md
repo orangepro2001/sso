@@ -218,13 +218,13 @@ caddy listeners exist on this host and both strip `/sso` before forwarding:
 | Listener | File | Serves |
 | --- | --- | --- |
 | tailnet | `/etc/caddy/Caddyfile` (`http://:8080`) | `https://egg.tail9f7f1f.ts.net/sso` |
-| public | `/etc/daily-work-web/Caddyfile` (`521985.xyz:443`) | `https://521985.xyz/sso` |
+| public | `/etc/daily-work-web/Caddyfile` (`521985.xyz:443`) | `https://sso.521985.xyz` |
 
 `deploy/caddy/public.Caddyfile` is the public file verbatim. It exposes only what
 actually runs on the host; everything else answers 404 rather than proxying to a
 dead backend.
 
-`SSO_ISSUER` must be the **canonical public** URL (`https://521985.xyz/sso`), not
+`SSO_ISSUER` must be the **canonical public** URL (`https://sso.521985.xyz`), not
 the tailnet name: the issuer is embedded in every token and in the discovery
 document, and a public client cannot resolve a tailnet host. Requests arriving
 through the tailnet still get tailnet-hosted links and redirects, because the
