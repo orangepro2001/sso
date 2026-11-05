@@ -65,6 +65,13 @@
 			reverse_proxy 127.0.0.1:8093
 		}
 
+		# 업무일보 (work-report). tailscale serve strips the /report prefix before
+		# forwarding, so this listener uses the same contract: the app keeps the
+		# prefix in the URLs it generates (WR_BASE_PATH=/report) and never sees it on
+		# the way in. Removing this block takes the whole board off the internet —
+		# the catch-all below answers "404 page not found".
+		import prefix report 127.0.0.1:3560
+
 		handle {
 			respond "404 page not found" 404
 		}
