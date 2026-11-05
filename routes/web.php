@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DeviceController;
 use App\Http\Controllers\Admin\TokenController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\UserLoginController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,16 @@ Route::middleware('guest:web')->group(function () {
     Route::post('login', [UserLoginController::class, 'store'])->name('login.store');
 });
 Route::post('logout', [UserLoginController::class, 'destroy'])->middleware('auth:web')->name('logout');
+
+// Password reset links. The token in the URL is the credential, so these are open
+// to anonymous visitors; the page itself refuses unknown/expired/spent tokens.
+// Rate limited because a link is a bearer token for somebody's account.
+Route::get('password/reset/{token}', [PasswordResetController::class, 'show'])
+    ->middleware('throttle:30,1')
+    ->name('password.reset');
+Route::post('password/reset/{token}', [PasswordResetController::class, 'update'])
+    ->middleware('throttle:10,1')
+    ->name('password.reset.update');
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +61,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::post('users/{user}/password', [UserController::class, 'resetPassword'])->name('users.password');
+        Route::post('users/{user}/reset-link', [UserController::class, 'resetLink'])->name('users.reset-link');
 
         Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/create', [ClientController::class, 'create'])->name('clients.create');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\PasswordResetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,7 +20,10 @@ use Illuminate\View\View;
  */
 class UserController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly PasswordResetService $resets,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -114,8 +118,13 @@ class UserController extends Controller
 
         $user->forceFill(['password' => $plain])->save();
 
+        // One rule for every password change: the old password stops opening
+        // things, so every credential it produced is revoked.
+        $revoked = $this->resets->revokeCredentials($user);
+
         $this->audit->log('admin.user.password_reset', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
             'username' => $user->username,
+            'revoked' => $revoked,
         ], $request);
 
         return redirect()->route('admin.users.edit', $user)
@@ -168,5 +177,25 @@ class UserController extends Controller
             'regex:'.User::USERNAME_PATTERN,
             $unique,
         ];
+    }
+
+    /**
+     * Mint a one-time reset link for this user.
+     *
+     * There is no mail flow, so the administrator copies the URL and delivers it
+     * out of band. It is shown once, expires, and is replaced by any newer link.
+     */
+    public function resetLink(Request $request, User $user): RedirectResponse
+    {
+        [$plain, $row] = $this->resets->issue($user, Auth::guard('admin')->id());
+
+        $this->audit->log('admin.user.reset_link_created', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
+            'username' => $user->username,
+            'expires_at' => $row->expires_at->toIso8601String(),
+        ], $request);
+
+        return redirect()->route('admin.users.edit', $user)
+            ->with('status', "Reset link created for {$user->username}.")
+            ->with('reset_url', $this->resets->url($plain));
     }
 }

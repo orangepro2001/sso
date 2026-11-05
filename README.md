@@ -128,6 +128,31 @@ php artisan sso:prune                  # default: 90d audit, 180d devices
 
 Installed as `sso-prune.timer` (nightly, `Persistent=true`) by `install.sh`.
 
+## Password reset without e-mail
+
+Users have no e-mail address, so there is no "forgot password" mail. The
+administrator mints a **one-time link** and hands it over out of band:
+
+```
+console → Users → <user> → "Create reset link"
+   ↓
+https://<host>/sso/password/reset/sso_pw_<48 chars>      (shown once)
+   ↓
+the user opens it, sets their own password, the link dies
+```
+
+- single use, expires after `SSO_RESET_LINK_TTL` (default 24 h)
+- issuing a new link revokes any earlier unused one
+- only the SHA-256 is stored, so a database dump is not a pile of live credentials
+- the URL is built from `SSO_ISSUER`, so it is publicly openable
+- every creation, use and refusal is in the audit log
+
+**Any** password change — this link or the console's "Replace password" — revokes
+that user's access and refresh tokens. One rule: the old password stops opening
+things, so what it opened is closed.
+
+Lost password with no link at hand? `php artisan sso:user-password <username>`.
+
 ## Console
 
 `/admin` — administrators only, no registration route exists anywhere in the app.

@@ -44,6 +44,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Password reset links
+    |--------------------------------------------------------------------------
+    | Users have no e-mail address, so a reset credential is a one-time URL an
+    | administrator generates and hands over out of band. Short by default: it is
+    | a bearer token for someone's account.
+    */
+    'reset_link_ttl' => (int) env('SSO_RESET_LINK_TTL', 86400),
+
+    /*
+    |--------------------------------------------------------------------------
     | Guest (silent) channel
     |--------------------------------------------------------------------------
     | A client proves itself with a stable environment value (hostname, machine

@@ -49,8 +49,23 @@
         </div>
         <p class="small muted" style="margin-bottom:0">
             Only this button changes the password; <strong>Save</strong> above does not.
-            The result is shown once on the next page.
+            The result is shown once on the next page. Changing the password revokes
+            every token this user holds.
         </p>
+    </form>
+
+    <h2>Let the user choose their own password</h2>
+    <form class="card" method="post" action="{{ route('admin.users.reset-link', $user) }}">
+        @csrf
+        <p class="small muted" style="margin-top:0">
+            Creates a one-time link. There is no mail flow, so you deliver it yourself
+            (chat, ticket, in person). The user opens it, sets a password, and the link
+            dies. It expires after {{ intdiv((int) config('sso.reset_link_ttl'), 3600) }} hours.
+        </p>
+        <div class="row">
+            <button type="submit">Create reset link</button>
+            <span class="small muted">Issuing a link invalidates any earlier unused one.</span>
+        </div>
     </form>
 
     <h2>Account facts</h2>

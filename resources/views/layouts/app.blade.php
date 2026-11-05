@@ -43,6 +43,15 @@
     @if (session('status'))
         <div class="flash ok">{{ session('status') }}</div>
     @endif
+    @if (session('reset_url'))
+        <div class="flash key">
+            <strong>Reset link — shown once, send it to the user yourself:</strong>
+            <div class="mono" style="margin-top:6px;word-break:break-all">{{ session('reset_url') }}</div>
+            <div class="small muted" style="margin-top:6px">
+                Single use. Issuing another link for the same user makes this one invalid.
+            </div>
+        </div>
+    @endif
     @if (session('generated_password'))
         <div class="flash key">
             <strong>Password set — shown once, copy it now:</strong>
