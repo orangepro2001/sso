@@ -19,6 +19,7 @@
                     @else
                         <a class="btn primary" href="{{ route('home') }}">Continue</a>
                     @endif
+                    <a class="btn" href="{{ route('account') }}">Your account</a>
                     <form method="post" action="{{ route('logout') }}">
                         @csrf
                         <button class="link" type="submit">Sign out</button>

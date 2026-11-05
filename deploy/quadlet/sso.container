@@ -21,7 +21,10 @@ EnvironmentFile=%h/.config/sso/env
 
 # Writable state on tmpfs: the image is built for a read-only rootfs.
 Tmpfs=/tmp:rw,mode=1777
-Tmpfs=/app/storage:rw,mode=1777
+# storage is a named volume, not tmpfs: it holds profile pictures
+# (app/Http/Controllers/Auth/ProfileController.php). Framework caches living here too
+# is harmless and means the directory survives a restart.
+Volume=sso-storage.volume:/app/storage:Z
 Tmpfs=/app/bootstrap/cache:rw,mode=1777
 
 ReadOnly=true

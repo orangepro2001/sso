@@ -20,6 +20,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'username', 'password', 'status', 'last_login_at', 'last_login_ip', 'created_by', 'note',
+        'avatar_path', 'avatar_mime', 'avatar_updated_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -27,6 +28,7 @@ class User extends Authenticatable
     protected $casts = [
         'password' => 'hashed',
         'last_login_at' => 'datetime',
+        'avatar_updated_at' => 'datetime',
     ];
 
     /**
@@ -41,6 +43,33 @@ class User extends Authenticatable
         static::saving(function (User $user) {
             $user->username = strtolower(trim((string) $user->username));
         });
+    }
+
+    /**
+     * A signed, cache-friendly URL for the picture.
+     *
+     * Public on purpose: other applications read it server-side from the `picture`
+     * claim and cannot carry a session. The signature is what makes it safe — the
+     * path is unguessable without it, and it changes when the picture does.
+     */
+    public function avatarUrl(): ?string
+    {
+        if ($this->avatar_path === null) {
+            return null;
+        }
+
+        $version = (string) ($this->avatar_updated_at?->getTimestamp() ?? 0);
+
+        return route('avatar.show', [
+            'user' => $this->id,
+            'v' => $version,
+            'sig' => hash_hmac('sha256', $this->id.'|'.$version, (string) config('app.key')),
+        ]);
+    }
+
+    public function hasAvatar(): bool
+    {
+        return $this->avatar_path !== null;
     }
 
     public function isActive(): bool

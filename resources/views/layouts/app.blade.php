@@ -35,6 +35,9 @@
             <a href="{{ route('admin.blacklist.index') }}" @class(['active' => request()->routeIs('admin.blacklist.*')])>Blacklist</a>
             <a href="{{ route('admin.audit.index') }}" @class(['active' => request()->routeIs('admin.audit.*')])>Audit</a>
         @endauth
+        @auth('web')
+            <a href="{{ route('account') }}" @class(['active' => request()->routeIs('account')])>Account</a>
+        @endauth
     </nav>
     <span class="spacer"></span>
 
@@ -52,7 +55,12 @@
         </form>
     @endauth
     @auth('web')
-        <span class="muted small">{{ auth('web')->user()->username }}</span>
+        <a class="row" href="{{ route('account') }}" style="text-decoration:none;gap:8px;color:var(--ink-2)">
+            @if (auth('web')->user()->hasAvatar())
+                <img src="{{ auth('web')->user()->avatarUrl() }}" alt="" width="22" height="22" style="border-radius:50%;object-fit:cover">
+            @endif
+            <span class="small">{{ auth('web')->user()->username }}</span>
+        </a>
         <form method="post" action="{{ route('logout') }}">
             @csrf
             <button class="link" type="submit">Sign out</button>

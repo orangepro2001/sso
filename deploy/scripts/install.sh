@@ -23,6 +23,16 @@ UNIT=sso.container
 SERVICE=sso.service
 IMAGE=localhost/sso:current
 
+# Profile pictures live in a named volume; without it they vanish with the container.
+ensure_volumes() {
+    for volume in sso-storage; do
+        if ! podman volume exists "$volume"; then
+            podman volume create "$volume" >/dev/null
+            log "created volume $volume"
+        fi
+    done
+}
+
 log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
@@ -75,6 +85,9 @@ main() {
     log "installing $QUADLET_DIR/$UNIT"
     # The unit uses %h/... paths, so it works unchanged for any user.
     as_root install -m 0644 "$SRC/deploy/quadlet/$UNIT" "$QUADLET_DIR/$UNIT"
+    # the volume unit the container mounts must be installed alongside it, or
+    # systemd refuses to start the service ("unit … not found")
+    as_root install -m 0644 "$SRC/deploy/quadlet/sso-storage.volume" "$QUADLET_DIR/sso-storage.volume"
 
     log "reloading systemd --user"
     systemctl --user daemon-reload

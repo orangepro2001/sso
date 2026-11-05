@@ -10,8 +10,10 @@ use App\Http\Controllers\Admin\InviteController;
 use App\Http\Controllers\Admin\TokenController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\Auth\ProfileController;
 use App\Http\Controllers\Auth\RegistrationController;
 use App\Http\Controllers\Auth\UserLoginController;
+use App\Http\Controllers\AvatarController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,6 +43,22 @@ Route::post('register/{code}', [RegistrationController::class, 'store'])
     ->middleware('guest:web')
     ->middleware('throttle:10,1')
     ->name('register.store');
+
+// Profile pictures are read by other applications from the `picture` claim, so the
+// route is anonymous and the URL carries an HMAC (AvatarController).
+Route::get('avatar/{user}/{v}', AvatarController::class)
+    ->middleware('throttle:120,1')
+    ->name('avatar.show');
+
+// The account a person owns: their name, their password, where they are signed in.
+Route::middleware('auth:web')->group(function () {
+    Route::get('account', [ProfileController::class, 'show'])->name('account');
+    Route::put('account', [ProfileController::class, 'update'])->name('account.update');
+    Route::post('account/password', [ProfileController::class, 'password'])->name('account.password');
+    Route::delete('account/tokens', [ProfileController::class, 'revokeTokens'])->name('account.tokens');
+    Route::post('account/avatar', [ProfileController::class, 'avatar'])->name('account.avatar');
+    Route::delete('account/avatar', [ProfileController::class, 'avatarRemove'])->name('account.avatar.remove');
+});
 
 // Password reset links. The token in the URL is the credential, so these are open
 // to anonymous visitors; the page itself refuses unknown/expired/spent tokens.

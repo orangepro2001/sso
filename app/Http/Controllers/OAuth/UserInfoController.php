@@ -58,6 +58,12 @@ class UserInfoController extends Controller
             $body['name'] = $user->name;
             $body['preferred_username'] = $user->username;
             $body['created_at'] = $user->created_at?->getTimestamp();
+
+            // Signed URL rather than a session-protected one: the relying party reads
+            // this server-side and has no session to offer (User::avatarUrl).
+            if ($user->hasAvatar()) {
+                $body['picture'] = $user->avatarUrl();
+            }
         }
 
         return response()->json($body);
