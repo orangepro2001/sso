@@ -16,12 +16,15 @@ class OauthClient extends Model
     public const TYPE_CONFIDENTIAL = 'confidential';
 
     protected $fillable = [
-        'client_id', 'name', 'type', 'secret_hash', 'redirect_uris', 'allowed_scopes', 'active', 'created_by', 'note',
+        'client_id', 'name', 'type', 'secret_hash', 'redirect_uris', 'home_url',
+        'sort_order', 'in_launcher', 'allowed_scopes', 'active', 'created_by', 'note',
     ];
 
     protected $hidden = ['secret_hash'];
 
     protected $casts = [
+        'in_launcher' => 'bool',
+        'sort_order' => 'int',
         'redirect_uris' => 'array',
         'allowed_scopes' => 'array',
         'active' => 'boolean',

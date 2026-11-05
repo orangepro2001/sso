@@ -19,7 +19,7 @@
         <p class="lead">Use the credentials an administrator gave you.</p>
     @endif
 
-    <form class="card" method="post" action="{{ route('login.store') }}">
+    <form class="card" method="post" action="{{ route('login.store') }}@if (! empty($next))?next={{ urlencode($next) }}@endif">
         @csrf
         <label for="username">Username</label>
         <input id="username" type="text" name="username" value="{{ old('username') }}" required autofocus
@@ -35,7 +35,7 @@
 
         <div class="row" style="margin-top:20px">
             <button class="primary" type="submit">Sign in</button>
-            <a class="btn" href="{{ route('home') }}">Cancel</a>
+            <a class="btn" href="{{ $next ?: route('home') }}">Cancel</a>
         </div>
     </form>
 

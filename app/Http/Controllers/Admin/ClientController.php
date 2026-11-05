@@ -55,6 +55,9 @@ class ClientController extends Controller
             'active' => (bool) ($data['active'] ?? true),
             'created_by' => Auth::guard('admin')->id(),
             'note' => $data['note'] ?? null,
+            'home_url' => $data['home_url'] ?? null,
+            'sort_order' => (int) ($data['sort_order'] ?? 0),
+            'in_launcher' => (bool) ($data['in_launcher'] ?? true),
         ]);
 
         if ($type === OauthClient::TYPE_CONFIDENTIAL) {
@@ -94,6 +97,9 @@ class ClientController extends Controller
             )),
             'active' => (bool) ($data['active'] ?? false),
             'note' => $data['note'] ?? null,
+            'home_url' => $data['home_url'] ?? null,
+            'sort_order' => (int) ($data['sort_order'] ?? 0),
+            'in_launcher' => (bool) ($data['in_launcher'] ?? false),
         ]);
 
         $plainSecret = null;
@@ -126,6 +132,10 @@ class ClientController extends Controller
             'allowed_scopes.*' => ['string'],
             'active' => ['nullable', 'boolean'],
             'note' => ['nullable', 'string', 'max:2000'],
+            // The launcher: where a person goes to use the application, in what order.
+            'home_url' => ['nullable', 'url', 'max:500'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999'],
+            'in_launcher' => ['nullable', 'boolean'],
         ]);
     }
 

@@ -26,10 +26,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', HomeController::class)->name('home');
 
 // End-user authentication, resumed by /oauth/authorize afterwards.
-Route::middleware('guest:web')->group(function () {
-    Route::get('login', [UserLoginController::class, 'show'])->name('login');
-    Route::post('login', [UserLoginController::class, 'store'])->name('login.store');
-});
+// The GET is outside `guest:web` on purpose: somebody arriving with ?next= while this
+// session is still alive must be sent to `next`, not bounced to the home page.
+Route::get('login', [UserLoginController::class, 'show'])->name('login');
+Route::post('login', [UserLoginController::class, 'store'])
+    ->middleware('guest:web')
+    ->name('login.store');
 Route::post('logout', [UserLoginController::class, 'destroy'])->middleware('auth:web')->name('logout');
 
 // Closed registration, with one door: an administrator-issued code. The code in the

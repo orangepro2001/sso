@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Support\SafeRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,17 +21,39 @@ class UserLoginController extends Controller
 {
     public function __construct(private readonly AuditLogger $audit) {}
 
-    public function show(Request $request): View
+    public function show(Request $request): View|RedirectResponse
     {
+        $next = SafeRedirect::target($request, $request->query('next') ? (string) $request->query('next') : null);
+
+        // Somebody who signed out of another application and landed here while this
+        // session was still alive: send them straight back instead of showing a form
+        // they do not need.
+        $target = $next === null ? null : SafeRedirect::absolute($request, $next);
+
+        if (Auth::guard('web')->check()) {
+            return redirect()->to($target ?? route('home'));
+        }
+
+        // Nobody to send anywhere yet, so remember where they wanted to go.
+        if ($target !== null) {
+            $request->session()->put('url.intended', $target);
+        }
+
         return view('auth.login', [
             // Set when /oauth/authorize bounced here: tells the person which
             // application is waiting, instead of an unexplained login form.
             'requestingClient' => trim((string) $request->query('client', '')) ?: null,
+            // Carried through the form so the POST keeps the destination.
+            'next' => $next,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        if ($next = SafeRedirect::target($request, $request->query('next') ? (string) $request->query('next') : null)) {
+            $request->session()->put('url.intended', SafeRedirect::absolute($request, $next));
+        }
+
         $credentials = $request->validate([
             'username' => ['required', 'string', 'max:64'],
             'password' => ['required', 'string'],

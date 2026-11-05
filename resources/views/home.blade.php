@@ -35,5 +35,24 @@
                 </p>
             @endif
         </div>
+
+        @if ($user && $apps->isNotEmpty())
+            <h2>Your applications</h2>
+            <p class="tiny muted" style="margin-top:-6px">
+                Curated by an administrator. Each one signs you in with this account — no separate password.
+            </p>
+
+            <div class="apps">
+                @foreach ($apps as $app)
+                    <a class="app" href="{{ $app->home_url }}">
+                        <span class="app__name">{{ $app->name }}</span>
+                        @if ($app->note)
+                            <span class="app__note">{{ \Illuminate\Support\Str::limit($app->note, 90) }}</span>
+                        @endif
+                        <span class="app__go">Open →</span>
+                    </a>
+                @endforeach
+            </div>
+        @endif
     </main>
 @endsection

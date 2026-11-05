@@ -20,6 +20,19 @@
         <label for="redirect_uris">Redirect URIs (one per line, exact match)</label>
         <textarea id="redirect_uris" name="redirect_uris" placeholder="https://example.internal/auth/callback">{{ old('redirect_uris') }}</textarea>
 
+
+        <label for="home_url">Home URL <span class="muted small">(where a person uses it; blank = machine only)</span></label>
+        <input id="home_url" type="url" name="home_url" maxlength="500"
+               value="{{ old('home_url') }}" placeholder="https://521985.xyz/report">
+
+        <label for="sort_order">Order in the launcher</label>
+        <input id="sort_order" type="number" name="sort_order" min="0" max="999" value="{{ old('sort_order', 0) }}">
+
+        <label class="row" style="margin-top:12px">
+            <input type="checkbox" name="in_launcher" value="1" style="width:auto" @checked(old('in_launcher', true))>
+            <span>Show in the launcher</span>
+        </label>
+
         <label>Allowed scopes</label>
         @foreach ($scopes as $scope)
             <label class="row" style="margin:4px 0">

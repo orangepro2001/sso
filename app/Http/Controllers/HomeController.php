@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OauthClient;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
@@ -18,9 +19,20 @@ class HomeController extends Controller
 {
     public function __invoke(Request $request): View
     {
+        $user = $request->user('web');
+
         return view('home', [
-            'user' => $request->user('web'),
+            'user' => $user,
             'pending' => $request->session()->get('oauth.pending'),
+            // The launcher: applications an administrator pointed at a page a person
+            // can open. A client registered only for machine use stays invisible.
+            'apps' => $user === null ? collect() : OauthClient::query()
+                ->where('active', true)
+                ->where('in_launcher', true)
+                ->whereNotNull('home_url')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'client_id', 'name', 'home_url', 'note']),
         ]);
     }
 }
