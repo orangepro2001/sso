@@ -78,4 +78,26 @@
             </table>
         @endif
     </div>
+
+    <h2>Guest channel</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+        <div class="stat"><div class="n">{{ $guestEnabled ? 'on' : 'off' }}</div><div class="k">Enabled</div></div>
+        <div class="stat"><div class="n mono" style="font-size:15px">{{ $guestAlgo }}</div><div class="k">Algorithm</div></div>
+        <div class="stat">
+            <div class="n" style="font-size:15px">{{ $guestSecretConfigured ? 'secret set' : 'no secret' }}</div>
+            <div class="k">Signature</div>
+        </div>
+    </div>
+
+    <h2>Endpoints</h2>
+    <div class="card">
+        <table>
+            <tbody>
+            @foreach ($endpoints as $label => $url)
+                <tr><th style="width:120px">{{ $label }}</th><td class="mono">{{ $url }}</td></tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+
 @endsection

@@ -36,7 +36,35 @@ class DashboardController extends Controller
             'recentAudit' => AuditLog::query()->latest('id')->limit(15)->get(),
             'guestSecretConfigured' => (string) config('sso.guest.secret', '') !== '',
             'keyCount' => SigningKey::query()->count(),
+            // Moved off the public home page: whoever needs the endpoint list is
+            // looking at the console, already signed in.
+            'guestEnabled' => (bool) config('sso.guest.enabled', true),
+            'guestAlgo' => (string) config('sso.guest.algo', 'hmac-sha256'),
+            'endpoints' => $this->endpoints(),
         ]);
+    }
+
+    /**
+     * Every address a client needs, built from the configured issuer so the console
+     * cannot drift from what the discovery document publishes.
+     *
+     * @return array<string,string>
+     */
+    private function endpoints(): array
+    {
+        $issuer = rtrim((string) config('sso.issuer'), '/');
+
+        return [
+            'Issuer' => $issuer,
+            'Discovery' => $issuer.'/.well-known/openid-configuration',
+            'Authorize' => $issuer.'/oauth/authorize',
+            'Token' => $issuer.'/oauth/token',
+            'Userinfo' => $issuer.'/oauth/userinfo',
+            'Introspect' => $issuer.'/oauth/introspect',
+            'Revoke' => $issuer.'/oauth/revoke',
+            'Guest' => $issuer.'/oauth/guest',
+            'JWKS' => $issuer.'/.well-known/jwks.json',
+        ];
     }
 
     public function audit(Request $request): View
