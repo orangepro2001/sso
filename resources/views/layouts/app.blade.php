@@ -43,6 +43,14 @@
     @if (session('status'))
         <div class="flash ok">{{ session('status') }}</div>
     @endif
+    @if (session('generated_password'))
+        <div class="flash key">
+            <strong>Password set — shown once, copy it now:</strong>
+            @foreach (session('generated_password') as $username => $plain)
+                <div class="mono" style="margin-top:6px">{{ $username }} &nbsp;→&nbsp; <code>{{ $plain }}</code></div>
+            @endforeach
+        </div>
+    @endif
     @if (session('client_secret'))
         <div class="flash key">
             <strong>Client secret (shown once):</strong><br>

@@ -38,7 +38,11 @@ class UserController extends Controller
 
     public function create(): View
     {
-        return view('admin.users.create', ['suggestedPassword' => Str::password(16)]);
+        // Deliberately no pre-filled password: a value rendered into the form is
+        // only a suggestion, and a page that was refreshed or visited via the back
+        // button shows a value that will not be stored. The password is either
+        // typed by the administrator or generated on submit and shown once.
+        return view('admin.users.create');
     }
 
     public function store(Request $request): RedirectResponse
@@ -48,14 +52,17 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'username' => $this->usernameRules(),
-            'password' => ['required', 'string', Password::min(12)],
+            'password' => ['nullable', 'string', Password::min(12)],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        // Blank means "you pick one": generate, then show it once on the next page.
+        $plain = $this->passwordToStore($data['password'] ?? null);
 
         $user = User::create([
             'name' => $data['name'],
             'username' => $data['username'],
-            'password' => $data['password'],
+            'password' => $plain,
             'status' => User::STATUS_ACTIVE,
             'note' => $data['note'] ?? null,
             'created_by' => Auth::guard('admin')->id(),
@@ -66,7 +73,10 @@ class UserController extends Controller
         ], $request);
 
         return redirect()->route('admin.users.index')
-            ->with('status', "User {$user->username} created.");
+            ->with('status', "User {$user->username} created.")
+            // Shown exactly once, on the page the administrator lands on: this is
+            // the only moment the plaintext exists.
+            ->with('generated_password', [$user->username => $plain]);
     }
 
     public function edit(User $user): View
@@ -97,16 +107,30 @@ class UserController extends Controller
     public function resetPassword(Request $request, User $user): RedirectResponse
     {
         $data = $request->validate([
-            'password' => ['required', 'string', Password::min(12)],
+            'password' => ['nullable', 'string', Password::min(12)],
         ]);
 
-        $user->forceFill(['password' => $data['password']])->save();
+        $plain = $this->passwordToStore($data['password'] ?? null);
+
+        $user->forceFill(['password' => $plain])->save();
 
         $this->audit->log('admin.user.password_reset', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
             'username' => $user->username,
         ], $request);
 
-        return redirect()->route('admin.users.edit', $user)->with('status', 'Password replaced.');
+        return redirect()->route('admin.users.edit', $user)
+            ->with('status', 'Password replaced.')
+            ->with('generated_password', [$user->username => $plain]);
+    }
+
+    /**
+     * The password that will actually be stored. An explicit value wins; a blank
+     * one becomes a generated password which the caller must display to the
+     * administrator, because that is the only copy that will ever exist.
+     */
+    private function passwordToStore(?string $typed): string
+    {
+        return $typed !== null && $typed !== '' ? $typed : Str::password(20, symbols: false);
     }
 
     /**

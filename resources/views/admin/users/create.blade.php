@@ -20,8 +20,14 @@
             Stored lower-case; the sign-in form is case-insensitive.
         </p>
 
-        <label for="password">Initial password (min. 12 characters)</label>
-        <input id="password" type="text" name="password" value="{{ old('password', $suggestedPassword) }}" required>
+        <label for="password">Initial password — leave blank to generate one</label>
+        <input id="password" type="password" name="password" value="{{ old('password') }}"
+               autocomplete="new-password" placeholder="(blank: a 20-character password is generated)">
+        <p class="small muted" style="margin:6px 0 0">
+            Minimum 12 characters if you type one. Whatever is used is shown once on
+            the next page — the form never pre-fills a password, so what you read here
+            is never out of date.
+        </p>
 
         <label for="note">Note (optional)</label>
         <textarea id="note" name="note">{{ old('note') }}</textarea>

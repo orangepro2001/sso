@@ -40,12 +40,17 @@
     <h2>Replace password</h2>
     <form class="card" method="post" action="{{ route('admin.users.password', $user) }}">
         @csrf
-        <label for="new-password">New password (min. 12 characters)</label>
-        <input id="new-password" type="text" name="password" value="{{ \Illuminate\Support\Str::password(16) }}" required>
+        <label for="new-password">New password — leave blank to generate one</label>
+        <input id="new-password" type="password" name="password" value=""
+               autocomplete="new-password" placeholder="(blank: a 20-character password is generated)">
         <div class="row" style="margin-top:16px">
             <button type="submit">Replace password</button>
             <span class="small muted">Active sessions and issued tokens stay valid.</span>
         </div>
+        <p class="small muted" style="margin-bottom:0">
+            Only this button changes the password; <strong>Save</strong> above does not.
+            The result is shown once on the next page.
+        </p>
     </form>
 
     <h2>Account facts</h2>
