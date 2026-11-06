@@ -79,7 +79,7 @@ class AdminConsoleTest extends TestCase
 
     public function test_old_invite_links_still_open_the_form(): void
     {
-        $this->get('/register/some-old-code')->assertOk()->assertSee('Create account');
+        $this->get('/register/some-old-code')->assertOk()->assertSee('가입하기');
     }
 
     public function test_registration_still_rejects_duplicates_and_bad_usernames(): void
@@ -98,14 +98,13 @@ class AdminConsoleTest extends TestCase
         $this->signIn();
         $user = User::factory()->create(['username' => 'promoted']);
 
-        $this->put("/admin/users/{$user->id}", [
-            'name' => $user->name, 'username' => 'promoted', 'status' => User::STATUS_ACTIVE, 'role' => User::ROLE_SUPER_ADMIN,
-        ])->assertRedirect(route('admin.users.index'));
+        $this->post("/admin/users/{$user->id}/role", ['role' => User::ROLE_SUPER_ADMIN])->assertRedirect();
         $this->assertTrue($user->fresh()->isSuperAdmin());
 
-        $this->put("/admin/users/{$user->id}", [
-            'name' => $user->name, 'username' => 'promoted', 'status' => User::STATUS_ACTIVE, 'role' => 'emperor',
-        ])->assertSessionHasErrors('role');
+        $this->post("/admin/users/{$user->id}/role", ['role' => User::ROLE_USER])->assertRedirect();
+        $this->assertFalse($user->fresh()->isSuperAdmin());
+
+        $this->post("/admin/users/{$user->id}/role", ['role' => 'emperor'])->assertSessionHasErrors('role');
     }
 
     public function test_the_role_command_sets_and_prints_a_role(): void
@@ -126,7 +125,7 @@ class AdminConsoleTest extends TestCase
             'username' => 'newperson',
             'password' => 'a-very-good-password',
             'role' => User::ROLE_USER,
-        ])->assertRedirect(route('admin.users.index'));
+        ])->assertRedirect();
 
         $user = User::query()->where('username', 'newperson')->firstOrFail();
         $this->assertSame(User::STATUS_ACTIVE, $user->status);
@@ -168,13 +167,13 @@ class AdminConsoleTest extends TestCase
         // duplicate
         $this->post('/admin/users', [
             'name' => 'Dup', 'username' => 'taken', 'password' => 'a-very-good-password',
-        ])->assertSessionHasErrors('username');
+        ])->assertSessionHasErrors('username', null, 'create');
 
         // too short, illegal characters, leading punctuation
         foreach (['ab', 'has space', 'bad!char', '.leading'] as $bad) {
             $this->post('/admin/users', [
                 'name' => 'Bad', 'username' => $bad, 'password' => 'a-very-good-password',
-            ])->assertSessionHasErrors('username');
+            ])->assertSessionHasErrors('username', null, 'create');
         }
     }
 
@@ -186,9 +185,7 @@ class AdminConsoleTest extends TestCase
         $this->put("/admin/users/{$user->id}", [
             'name' => 'Renamed',
             'username' => 'stable',
-            'status' => User::STATUS_ACTIVE,
-            'role' => User::ROLE_USER,
-        ])->assertRedirect(route('admin.users.index'));
+        ])->assertSessionHasNoErrors()->assertRedirect();
 
         $this->assertSame('Renamed', $user->fresh()->name);
     }
@@ -202,7 +199,7 @@ class AdminConsoleTest extends TestCase
             'name' => 'Dup',
             'username' => 'taken',
             'password' => 'a-very-good-password',
-        ])->assertSessionHasErrors('username');
+        ])->assertSessionHasErrors('username', null, 'create');
     }
 
     public function test_a_disabled_user_cannot_sign_in(): void

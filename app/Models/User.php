@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -58,6 +59,10 @@ class User extends Authenticatable
      * Public on purpose: other applications read it server-side from the `picture`
      * claim and cannot carry a session. The signature is what makes it safe — the
      * path is unguessable without it, and it changes when the picture does.
+     *
+     * Built from the issuer, not from the request: work-report calls /oauth/userinfo
+     * on 127.0.0.1:3550, and a URL built from that Host was stored as the picture of
+     * a member and shown, broken, to every browser.
      */
     public function avatarUrl(): ?string
     {
@@ -66,12 +71,22 @@ class User extends Authenticatable
         }
 
         $version = (string) ($this->avatar_updated_at?->getTimestamp() ?? 0);
+        $signature = hash_hmac('sha256', $this->id.'|'.$version, (string) config('app.key'));
 
-        return route('avatar.show', [
-            'user' => $this->id,
-            'v' => $version,
-            'sig' => hash_hmac('sha256', $this->id.'|'.$version, (string) config('app.key')),
-        ]);
+        return rtrim((string) config('sso.issuer'), '/').'/avatar/'.$this->id.'/'.$version.'?sig='.$signature;
+    }
+
+    /** Name or username, case-insensitively; blank matches everyone. */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        $term = trim((string) $term);
+        if ($term === '') {
+            return $query;
+        }
+
+        $like = '%'.addcslashes($term, '%_\\').'%';
+
+        return $query->where(fn ($w) => $w->where('username', 'ilike', $like)->orWhere('name', 'ilike', $like));
     }
 
     public function hasAvatar(): bool

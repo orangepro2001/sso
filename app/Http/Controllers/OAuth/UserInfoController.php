@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccessToken;
 use App\Models\User;
 use App\Services\TokenService;
+use App\Support\BearerToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +19,7 @@ class UserInfoController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
-        $plain = $this->bearer($request);
+        $plain = BearerToken::from($request);
         if ($plain === null) {
             return $this->unauthorized('Missing bearer token');
         }
@@ -61,18 +62,6 @@ class UserInfoController extends Controller
         }
 
         return response()->json($body);
-    }
-
-    private function bearer(Request $request): ?string
-    {
-        $header = (string) $request->header('Authorization', '');
-        if (preg_match('/^Bearer\s+(\S+)$/i', $header, $m) === 1) {
-            return $m[1];
-        }
-
-        $fallback = $request->input('access_token');
-
-        return is_string($fallback) && $fallback !== '' ? $fallback : null;
     }
 
     private function unauthorized(string $message): JsonResponse

@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Middleware\AuthenticateAdmin;
+use App\Http\Middleware\AuthenticateToken;
 use App\Http\Middleware\ForceHttpsRootUrl;
 use App\Http\Middleware\SecurityHeaders;
+use App\Services\AccountRuleException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         then: function (): void {
@@ -43,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // the group (as is tempting) stores /admin/login instead of /sso/admin/login
         // and every validation-failure redirect lands on a 404.
         $middleware->prependToGroup('web', ForceHttpsRootUrl::class);
+        $middleware->prependToGroup('api', ForceHttpsRootUrl::class);
 
         $middleware->web(append: [
             SecurityHeaders::class,
@@ -50,10 +54,21 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => AuthenticateAdmin::class,
+            'token' => AuthenticateToken::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('oauth/*') || $request->is('.well-known/*') || $request->expectsJson()
+            fn (Request $request) => $request->is('oauth/*') || $request->is('.well-known/*') || $request->is('api/*') || $request->expectsJson()
         );
+
+        // An account rule (UserAccounts) reads like a validation error wherever it
+        // was hit: a field message on the form, or a 422 for an API caller.
+        $exceptions->render(function (AccountRuleException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage(), 'errors' => [$e->field => [$e->getMessage()]]], 422);
+            }
+
+            return back()->withErrors([$e->field => $e->getMessage()])->withInput();
+        });
     })->create();

@@ -66,7 +66,7 @@ class UserLoginController extends Controller
         $key = 'login:'.$credentials['username'].'|'.$request->ip();
         if (RateLimiter::tooManyAttempts($key, 10)) {
             throw ValidationException::withMessages([
-                'username' => 'Too many attempts. Try again in '.RateLimiter::availableIn($key).' seconds.',
+                'username' => '시도가 너무 많습니다. '.RateLimiter::availableIn($key).'초 뒤에 다시 시도하세요.',
             ]);
         }
 
@@ -78,7 +78,7 @@ class UserLoginController extends Controller
                 'guard' => 'web',
             ], $request);
 
-            throw ValidationException::withMessages(['username' => 'These credentials do not match our records.']);
+            throw ValidationException::withMessages(['username' => '아이디 또는 비밀번호가 맞지 않습니다.']);
         }
 
         /** @var User $user */
@@ -87,7 +87,7 @@ class UserLoginController extends Controller
             Auth::guard('web')->logout();
             $this->audit->log('login.denied', 'user', $user->id, 'user', $user->id, ['reason' => 'disabled'], $request);
 
-            throw ValidationException::withMessages(['username' => 'This account has been disabled.']);
+            throw ValidationException::withMessages(['username' => '비활성화된 계정입니다. 관리자에게 문의하세요.']);
         }
 
         RateLimiter::clear($key);

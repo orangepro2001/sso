@@ -26,6 +26,12 @@ class AccessToken extends Model
         'revoked_at' => 'datetime',
     ];
 
+    /** The application the token was issued to (client_id is the public id, not the row id). */
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(OauthClient::class, 'client_id', 'client_id');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -3,200 +3,206 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AccessToken;
+use App\Models\AuditLog;
 use App\Models\User;
-use App\Services\AuditLogger;
-use App\Services\PasswordResetService;
+use App\Services\UserAccounts;
+use App\Support\AuditPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * Account administration: create users, change their role, status and password.
+ * The console's centre: the people. One list, one page per person, and every
+ * action on that page is a single button (UserAccounts holds the rules).
  */
 class UserController extends Controller
 {
-    public function __construct(
-        private readonly AuditLogger $audit,
-        private readonly PasswordResetService $resets,
-    ) {}
+    public function __construct(private readonly UserAccounts $accounts) {}
 
     public function index(Request $request): View
     {
         $search = trim((string) $request->query('q', ''));
+        $filter = (string) $request->query('filter', 'all');
 
         $users = User::query()
-            ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
-                ->where('username', 'ilike', '%'.$search.'%')
-                ->orWhere('name', 'ilike', '%'.$search.'%')))
-            ->latest('id')
-            ->paginate(25)
+            ->search($search)
+            ->when($filter === 'admin', fn ($q) => $q->where('role', User::ROLE_SUPER_ADMIN))
+            ->when($filter === 'user', fn ($q) => $q->where('role', User::ROLE_USER))
+            ->when($filter === 'disabled', fn ($q) => $q->where('status', User::STATUS_DISABLED))
+            // Disabled accounts sink; within a group the person most recently
+            // active comes first, which is who an administrator usually looks for.
+            ->orderByRaw('case when status = ? then 0 else 1 end', [User::STATUS_ACTIVE])
+            ->orderByRaw('last_login_at desc nulls last')
+            ->orderBy('name')
+            ->paginate(50)
             ->withQueryString();
 
-        return view('admin.users.index', ['users' => $users, 'search' => $search]);
+        return view('admin.users.index', [
+            'users' => $users,
+            'search' => $search,
+            'filter' => $filter,
+            'counts' => [
+                'all' => User::query()->count(),
+                'admin' => User::query()->where('role', User::ROLE_SUPER_ADMIN)->count(),
+                'user' => User::query()->where('role', User::ROLE_USER)->count(),
+                'disabled' => User::query()->where('status', User::STATUS_DISABLED)->count(),
+            ],
+        ]);
     }
 
-    public function create(): View
+    /** Old bookmark: the list with the "new user" dialog open. */
+    public function create(): RedirectResponse
     {
-        // Deliberately no pre-filled password: a value rendered into the form is
-        // only a suggestion, and a page that was refreshed or visited via the back
-        // button shows a value that will not be stored. The password is either
-        // typed by the administrator or generated on submit and shown once.
-        return view('admin.users.create');
+        return redirect()->route('admin.users.index', ['new' => 1]);
+    }
+
+    /** Old bookmark: the edit form is now part of the person's page. */
+    public function edit(User $user): RedirectResponse
+    {
+        return redirect()->route('admin.users.show', $user);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $this->normaliseUsername($request);
+        UserAccounts::normaliseUsername($request);
 
-        $data = $request->validate([
+        $data = $request->validateWithBag('create', [
             'name' => ['required', 'string', 'max:120'],
-            'username' => $this->usernameRules(),
+            'username' => UserAccounts::usernameRules(),
             'password' => ['nullable', 'string'],
             'role' => ['nullable', Rule::in(User::ROLES)],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        // Blank means "you pick one": generate, then show it once on the next page.
-        $plain = $this->passwordToStore($data['password'] ?? null);
+        [$user, $generated] = $this->accounts->create($data, $this->actor(), $request);
 
-        $user = User::create([
-            'name' => $data['name'],
-            'username' => $data['username'],
-            'password' => $plain,
-            'role' => $data['role'] ?? User::ROLE_USER,
-            'status' => User::STATUS_ACTIVE,
-            'note' => $data['note'] ?? null,
-            'created_by' => Auth::guard('admin')->id(),
-        ]);
-
-        $this->audit->log('admin.user.created', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
-            'username' => $user->username,
-        ], $request);
-
-        return redirect()->route('admin.users.index')
-            ->with('status', "User {$user->username} created.")
-            // Shown exactly once, on the page the administrator lands on: this is
-            // the only moment the plaintext exists.
-            ->with('generated_password', [$user->username => $plain]);
+        return redirect()->route('admin.users.show', $user)
+            ->with('status', "{$user->name} ({$user->username}) 계정을 만들었습니다.")
+            // The only moment the plaintext exists: shown once on the next page.
+            ->with('generated_password', $generated === null ? null : [$user->username => $generated]);
     }
 
-    public function edit(User $user): View
+    public function show(User $user): View
     {
-        return view('admin.users.edit', ['user' => $user]);
+        $activity = AuditLog::query()
+            ->where(fn ($q) => $q
+                ->where(fn ($w) => $w->where('subject_type', 'user')->where('subject_id', (string) $user->id))
+                ->orWhere(fn ($w) => $w->whereIn('actor_type', ['user', 'admin'])->where('actor_id', (string) $user->id)))
+            ->latest('id')
+            ->limit(12)
+            ->get();
+
+        return view('admin.users.show', [
+            'user' => $user->load('creator'),
+            'self' => $user->id === $this->actor()->id,
+            'tokens' => AccessToken::query()
+                ->with('client')
+                ->where('user_id', $user->id)
+                ->whereNull('revoked_at')
+                ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                ->latest('id')
+                ->limit(20)
+                ->get(),
+            'activity' => $activity,
+            'people' => AuditPresenter::people($activity),
+        ]);
     }
 
     public function update(Request $request, User $user): RedirectResponse
     {
-        $this->normaliseUsername($request);
+        UserAccounts::normaliseUsername($request);
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'username' => $this->usernameRules($user->id),
-            'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_DISABLED])],
-            'role' => ['nullable', Rule::in(User::ROLES)],
+            'username' => UserAccounts::usernameRules($user->id),
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $user->fill(array_filter($data, fn ($v, $k) => $k !== 'role' || $v !== null, ARRAY_FILTER_USE_BOTH))->save();
+        $this->accounts->update($user, $data, $this->actor(), $request);
 
-        $this->audit->log('admin.user.updated', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
-            'username' => $user->username, 'status' => $user->status, 'role' => $user->role,
-        ], $request);
+        return back()->with('status', '기본 정보를 저장했습니다.');
+    }
 
-        return redirect()->route('admin.users.index')->with('status', "User {$user->username} updated.");
+    public function role(Request $request, User $user): RedirectResponse
+    {
+        $data = $request->validate(['role' => ['required', Rule::in(User::ROLES)]]);
+        $this->accounts->update($user, $data, $this->actor(), $request);
+
+        return back()->with('status', $user->isSuperAdmin()
+            ? "{$user->name} 님을 관리자로 지정했습니다."
+            : "{$user->name} 님을 일반 사용자로 바꿨습니다.");
+    }
+
+    public function status(Request $request, User $user): RedirectResponse
+    {
+        $data = $request->validate(['status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_DISABLED])]]);
+        $this->accounts->update($user, $data, $this->actor(), $request);
+
+        return back()->with('status', $user->isActive()
+            ? "{$user->name} 님의 계정을 다시 활성화했습니다."
+            : "{$user->name} 님의 계정을 비활성화했습니다. 모든 앱과 브라우저에서 로그아웃됩니다.");
     }
 
     public function resetPassword(Request $request, User $user): RedirectResponse
     {
-        $data = $request->validate([
-            'password' => ['nullable', 'string'],
-        ]);
+        $data = $request->validate(['password' => ['nullable', 'string']]);
+        $plain = $this->accounts->setPassword($user, $data['password'] ?? null, $this->actor(), $request);
 
-        $plain = $this->passwordToStore($data['password'] ?? null);
-
-        $user->forceFill(['password' => $plain])->save();
-
-        // One rule for every password change: the old password stops opening
-        // things, so every credential it produced is revoked.
-        $revoked = $this->resets->revokeCredentials($user);
-
-        $this->audit->log('admin.user.password_reset', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
-            'username' => $user->username,
-            'revoked' => $revoked,
-        ], $request);
-
-        return redirect()->route('admin.users.edit', $user)
-            ->with('status', 'Password replaced.')
+        return redirect()->route('admin.users.show', $user)
+            ->with('status', '비밀번호를 설정했습니다. 이 사용자는 모든 앱에서 로그아웃됩니다.')
             ->with('generated_password', [$user->username => $plain]);
     }
 
-    /**
-     * The password that will actually be stored. An explicit value wins; a blank
-     * one becomes a generated password which the caller must display to the
-     * administrator, because that is the only copy that will ever exist.
-     */
-    private function passwordToStore(?string $typed): string
-    {
-        return $typed !== null && $typed !== '' ? $typed : Str::password(20, symbols: false);
-    }
-
-    /**
-     * Lower-case the username before validating it, so that what the administrator
-     * typed is checked (and echoed back on error) in the same shape it is stored.
-     * Without this, "MiXeD.Case" is rejected by the lower-case-only pattern even
-     * though it is a perfectly good username.
-     */
-    private function normaliseUsername(Request $request): void
-    {
-        $value = $request->input('username');
-        if (is_string($value)) {
-            $request->merge(['username' => strtolower(trim($value))]);
-        }
-    }
-
-    /**
-     * Usernames are the login identifier, so they are constrained tightly: ASCII,
-     * lower-case, no leading/trailing punctuation, unique.
-     *
-     * @return array<int, mixed>
-     */
-    private function usernameRules(?int $ignoreId = null): array
-    {
-        $unique = Rule::unique('users', 'username');
-        if ($ignoreId !== null) {
-            $unique->ignore($ignoreId);
-        }
-
-        return [
-            'required',
-            'string',
-            'min:3',
-            'max:64',
-            'regex:'.User::USERNAME_PATTERN,
-            $unique,
-        ];
-    }
-
-    /**
-     * Mint a one-time reset link for this user.
-     *
-     * There is no mail flow, so the administrator copies the URL and delivers it
-     * out of band. It is shown once, expires, and is replaced by any newer link.
-     */
     public function resetLink(Request $request, User $user): RedirectResponse
     {
-        [$plain, $row] = $this->resets->issue($user, Auth::guard('admin')->id());
+        $link = $this->accounts->resetLink($user, $this->actor(), $request);
 
-        $this->audit->log('admin.user.reset_link_created', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
-            'username' => $user->username,
-            'expires_at' => $row->expires_at->toIso8601String(),
-        ], $request);
+        return redirect()->route('admin.users.show', $user)
+            ->with('status', '비밀번호 재설정 링크를 만들었습니다.')
+            ->with('reset_url', $link['url'])
+            ->with('reset_expires', $link['expires_at']->format('Y-m-d H:i'));
+    }
 
-        return redirect()->route('admin.users.edit', $user)
-            ->with('status', "Reset link created for {$user->username}.")
-            ->with('reset_url', $this->resets->url($plain));
+    public function avatar(Request $request, User $user): RedirectResponse
+    {
+        $request->validate(['avatar' => UserAccounts::AVATAR_RULES]);
+        $this->accounts->storeAvatar($user, $request->file('avatar'), $this->actor(), $request);
+
+        return back()->with('status', '프로필 사진을 바꿨습니다.');
+    }
+
+    public function avatarRemove(Request $request, User $user): RedirectResponse
+    {
+        $this->accounts->removeAvatar($user, $this->actor(), $request);
+
+        return back()->with('status', '프로필 사진을 지웠습니다.');
+    }
+
+    public function signOut(Request $request, User $user): RedirectResponse
+    {
+        $counts = $this->accounts->signOutEverywhere($user, $this->actor(), $request);
+
+        return back()->with('status', "모든 곳에서 로그아웃시켰습니다 (앱 토큰 {$counts['access_tokens']}개, 브라우저 세션 {$counts['sessions']}개).");
+    }
+
+    public function destroy(Request $request, User $user): RedirectResponse
+    {
+        $request->validate(['confirm' => ['required', 'string', Rule::in([$user->username])]], [
+            'confirm.in' => '확인란에 아이디를 정확히 입력하세요.',
+            'confirm.required' => '확인란에 아이디를 입력하세요.',
+        ]);
+
+        $this->accounts->delete($user, $this->actor(), $request);
+
+        return redirect()->route('admin.users.index')->with('status', "{$user->name} ({$user->username}) 계정을 삭제했습니다.");
+    }
+
+    private function actor(): User
+    {
+        /** @var User */
+        return Auth::guard('admin')->user();
     }
 }

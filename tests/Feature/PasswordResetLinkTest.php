@@ -42,7 +42,7 @@ class PasswordResetLinkTest extends TestCase
 
         $response = $this->post("/admin/users/{$user->id}/reset-link");
 
-        $response->assertRedirect(route('admin.users.edit', $user));
+        $response->assertRedirect(route('admin.users.show', $user));
         $url = session('reset_url');
         $this->assertIsString($url);
         $this->assertStringContainsString('/password/reset/sso_pw_', $url);
@@ -61,7 +61,7 @@ class PasswordResetLinkTest extends TestCase
 
         $this->get("/password/reset/{$token}")
             ->assertOk()
-            ->assertSee('Set a new password')
+            ->assertSee('새 비밀번호 정하기')
             ->assertSee('formuser');
     }
 
@@ -94,12 +94,12 @@ class PasswordResetLinkTest extends TestCase
             'password_confirmation' => 'first-new-password-1',
         ])->assertRedirect();
 
-        $this->get("/password/reset/{$token}")->assertOk()->assertSee('This link cannot be used');
+        $this->get("/password/reset/{$token}")->assertOk()->assertSee('이 링크는 쓸 수 없습니다');
 
         $this->post("/password/reset/{$token}", [
             'password' => 'second-new-password-2',
             'password_confirmation' => 'second-new-password-2',
-        ])->assertOk()->assertSee('This link cannot be used');
+        ])->assertOk()->assertSee('이 링크는 쓸 수 없습니다');
 
         $this->assertTrue(Hash::check('first-new-password-1', $user->fresh()->password));
     }
@@ -111,14 +111,14 @@ class PasswordResetLinkTest extends TestCase
 
         UserPasswordReset::query()->where('user_id', $user->id)->update(['expires_at' => now()->subMinute()]);
 
-        $this->get("/password/reset/{$token}")->assertOk()->assertSee('This link cannot be used');
+        $this->get("/password/reset/{$token}")->assertOk()->assertSee('이 링크는 쓸 수 없습니다');
     }
 
     public function test_an_unknown_link_is_refused_without_leaking_anything(): void
     {
         $this->get('/password/reset/sso_pw_totally-made-up')
             ->assertOk()
-            ->assertSee('This link cannot be used');
+            ->assertSee('이 링크는 쓸 수 없습니다');
 
         $this->assertDatabaseHas('audit_logs', ['event' => 'user.password_reset.rejected']);
     }
@@ -129,8 +129,8 @@ class PasswordResetLinkTest extends TestCase
         $old = $this->issueToken($user);
         $new = $this->issueToken($user);
 
-        $this->get("/password/reset/{$old}")->assertOk()->assertSee('This link cannot be used');
-        $this->get("/password/reset/{$new}")->assertOk()->assertSee('Set a new password');
+        $this->get("/password/reset/{$old}")->assertOk()->assertSee('이 링크는 쓸 수 없습니다');
+        $this->get("/password/reset/{$new}")->assertOk()->assertSee('새 비밀번호 정하기');
     }
 
     public function test_a_mismatched_confirmation_is_rejected_and_the_link_stays_usable(): void
@@ -143,7 +143,7 @@ class PasswordResetLinkTest extends TestCase
             'password_confirmation' => 'two',
         ])->assertSessionHasErrors('password');
 
-        $this->get("/password/reset/{$token}")->assertOk()->assertSee('Set a new password');
+        $this->get("/password/reset/{$token}")->assertOk()->assertSee('새 비밀번호 정하기');
     }
 
     public function test_a_reset_revokes_every_credential_the_user_holds(): void

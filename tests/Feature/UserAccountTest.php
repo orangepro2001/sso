@@ -5,15 +5,17 @@ namespace Tests\Feature;
 use App\Models\AccessToken;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * The account page a normal user owns (app/Http/Controllers/Auth/AccountController).
+ * The account page a normal user owns (app/Http/Controllers/Auth/ProfileController).
  *
  * The line these tests draw: a person may change their own display name and password,
- * and may sign other devices out — but not their username, which is the identity every
- * application matches on.
+ * and may sign other devices out; the username changes only with the current password.
  */
 class UserAccountTest extends TestCase
 {
@@ -43,7 +45,7 @@ class UserAccountTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame('채길용 (품질)', $user->fresh()->name);
-        // The username is not part of the form, so it cannot be smuggled in.
+        // Without the username field, the username stays as it is.
         $this->assertSame('chae-gilyong', $user->fresh()->username);
     }
 
@@ -68,6 +70,7 @@ class UserAccountTest extends TestCase
 
         $token = AccessToken::create([
             'kind' => AccessToken::KIND_JWT,
+            'jti' => (string) Str::uuid(),
             'subject_type' => AccessToken::SUBJECT_USER,
             'user_id' => $user->id,
             'scopes' => ['openid'],
@@ -92,6 +95,7 @@ class UserAccountTest extends TestCase
 
         $token = AccessToken::create([
             'kind' => AccessToken::KIND_JWT,
+            'jti' => (string) Str::uuid(),
             'subject_type' => AccessToken::SUBJECT_USER,
             'user_id' => $user->id,
             'scopes' => ['openid'],
@@ -102,4 +106,44 @@ class UserAccountTest extends TestCase
 
         $this->assertNotNull($token->fresh()->revoked_at);
     }
+
+    public function test_changing_the_username_needs_the_current_password(): void
+    {
+        $user = $this->user();
+
+        $this->actingAs($user, 'web')
+            ->put('/account', ['name' => $user->name, 'username' => 'renamed'])
+            ->assertSessionHasErrors('current_password');
+        $this->assertSame('chae-gilyong', $user->fresh()->username);
+
+        $this->put('/account', ['name' => $user->name, 'username' => 'renamed', 'current_password' => 'correct-horse-battery'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('renamed', $user->fresh()->username);
+    }
+
+    public function test_a_picture_can_be_uploaded_and_removed(): void
+    {
+        Storage::fake('local');
+        $user = $this->user();
+
+        $this->actingAs($user, 'web')
+            ->post('/account/avatar', ['avatar' => UploadedFile::fake()->createWithContent('me.png', base64_decode(self::PNG))])
+            ->assertSessionHasNoErrors();
+
+        $user->refresh();
+        $this->assertNotNull($user->avatar_path);
+        Storage::disk('local')->assertExists($user->avatar_path);
+        $this->assertStringStartsWith(rtrim((string) config('sso.issuer'), '/').'/avatar/'.$user->id.'/', (string) $user->avatarUrl());
+
+        $this->delete('/account/avatar')->assertSessionHasNoErrors();
+        $this->assertNull($user->fresh()->avatar_path);
+    }
+
+    public function test_the_account_page_renders_in_korean(): void
+    {
+        $this->actingAs($this->user(), 'web')->get('/account')->assertOk()->assertSee('프로필 사진')->assertSee('비밀번호 변경');
+    }
+
+    /** A 1×1 transparent PNG. */
+    private const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 }

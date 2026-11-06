@@ -74,7 +74,7 @@ class PasswordResetController extends Controller
             'revoked' => $revoked,
         ], $request);
 
-        return redirect()->route('login')->with('status', 'Password changed. Sign in with the new one.');
+        return redirect()->route('login')->with('status', '비밀번호를 바꿨습니다. 새 비밀번호로 로그인하세요.');
     }
 
     private function reason(UserPasswordReset $reset): string

@@ -1,133 +1,105 @@
 @extends('layouts.app')
+@use('App\Support\When')
 
-@section('title', 'Account')
+@section('title', '내 계정')
 
 @section('content')
-    <h1>Your account</h1>
-    <p class="lead">Signed in as <span class="mono">{{ $user->username }}</span>.</p>
-
-    @if ($errors->any())
-        <div class="flash bad">
-            @foreach ($errors->all() as $error)
-                <div>{{ $error }}</div>
-            @endforeach
+    <div class="page-head">
+        <div>
+            <h1>내 계정</h1>
+            <p class="lead">여기서 바꾼 이름과 사진은 모든 앱에 반영됩니다 (앱에 다시 로그인하면 바로 보입니다).</p>
         </div>
-    @endif
+    </div>
 
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">
-
-        <div class="card">
-            <h2 style="margin-top:0">Picture</h2>
-            <div class="row" style="align-items:center;gap:16px">
-                @if ($user->hasAvatar())
-                    <img src="{{ $user->avatarUrl() }}" alt="" width="72" height="72"
-                         style="border-radius:50%;object-fit:cover;border:1px solid var(--hair)">
-                @else
-                    <span style="width:72px;height:72px;border-radius:50%;display:grid;place-items:center;
-                                 background:var(--blue-050);color:var(--blue);font-weight:700;font-size:26px">
-                        {{ mb_substr($user->name, 0, 1) }}
-                    </span>
-                @endif
-
-                <form method="post" action="{{ route('account.avatar') }}" enctype="multipart/form-data" class="row">
-                    @csrf
-                    <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif" required>
-                    <button class="btn primary" type="submit">Upload</button>
-                </form>
-
-                @if ($user->hasAvatar())
-                    <form method="post" action="{{ route('account.avatar.remove') }}">
-                        @csrf @method('DELETE')
-                        <button class="btn danger" type="submit">Remove</button>
-                    </form>
-                @endif
-            </div>
-            <p class="tiny muted">PNG, JPEG, WebP or GIF, up to 512 KB. Stored on this host — nothing is sent to an avatar service.</p>
-        </div>
-
-        <div class="card">
-            <h2 style="margin-top:0">Profile</h2>
-            <form method="post" action="{{ route('account.update') }}">
+    <div class="split">
+        <div class="stack">
+            <form class="card" method="post" action="{{ route('account.update') }}">
                 @csrf
-                @method('PUT')
+                @method('put')
+                <h2 class="card__title">프로필</h2>
 
-                <label for="name">Display name</label>
+                <label for="name">이름</label>
                 <input id="name" type="text" name="name" value="{{ old('name', $user->name) }}" required maxlength="120">
-                <p class="tiny muted">Shown inside the applications.</p>
+                <div class="hint">앱에 표시되는 이름입니다. 직급을 붙여도 됩니다.</div>
 
-                <label for="username">Username</label>
-                <input id="username" type="text" name="username" value="{{ old('username', $user->username) }}"
-                       required minlength="3" maxlength="64" autocapitalize="off">
-                <p class="tiny muted">
-                    What you sign in with. Changing it needs your current password below, and other applications
-                    that copied the name — rather than the account id — will see the new one.
-                </p>
+                <label for="username">아이디</label>
+                <input id="username" type="text" name="username" value="{{ old('username', $user->username) }}" required
+                       autocapitalize="none" spellcheck="false" autocomplete="username">
 
-                <label for="confirm_password">Current password <span class="muted">(only needed to change the username)</span></label>
-                <input id="confirm_password" type="password" name="current_password" autocomplete="current-password">
+                <label for="current_password_profile">현재 비밀번호 <span class="muted small">(아이디를 바꿀 때만)</span></label>
+                <input id="current_password_profile" type="password" name="current_password" autocomplete="current-password">
+                @error('current_password')<div class="field-error">{{ $message }}</div>@enderror
 
-                <div class="row" style="margin-top:16px">
-                    <button class="btn primary" type="submit">Save profile</button>
+                <div class="form-actions">
+                    <button class="primary" type="submit">저장</button>
                 </div>
             </form>
-        </div>
 
-        <div class="card">
-            <h2 style="margin-top:0">Password</h2>
-            <form method="post" action="{{ route('account.password') }}">
+            <form class="card" method="post" action="{{ route('account.password') }}">
                 @csrf
+                <h2 class="card__title">비밀번호 변경</h2>
+                <p class="card__hint">바꾸면 이 브라우저를 뺀 모든 기기와 앱에서 로그아웃됩니다.</p>
 
-                <label for="current_password">Current password</label>
+                <label for="current_password">현재 비밀번호</label>
                 <input id="current_password" type="password" name="current_password" required autocomplete="current-password">
 
-                <label for="password">New password</label>
+                <label for="password">새 비밀번호</label>
                 <input id="password" type="password" name="password" required autocomplete="new-password">
-                <p class="tiny muted">Every other device is signed out once it changes.</p>
 
-                <label for="password_confirmation">New password again</label>
+                <label for="password_confirmation">새 비밀번호 확인</label>
                 <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
 
-                <div class="row" style="margin-top:16px">
-                    <button class="btn primary" type="submit">Change password</button>
+                <div class="form-actions">
+                    <button class="primary" type="submit">비밀번호 변경</button>
                 </div>
             </form>
         </div>
 
-        <div class="card">
-            <h2 style="margin-top:0">Where you are signed in</h2>
-            @if ($signedIn->isEmpty())
-                <p class="empty">No application holds a token for you right now.</p>
-            @else
-                <table>
-                    <thead><tr><th>Application</th><th>Signed in</th><th>From</th><th>Expires</th></tr></thead>
-                    <tbody>
-                    @foreach ($signedIn as $token)
-                        <tr>
-                            <td class="mono">{{ $token->client_id ?: 'web session' }}</td>
-                            <td class="small muted">{{ $token->created_at?->format('Y-m-d H:i') }}</td>
-                            <td class="mono small">{{ $token->issued_ip ?? '—' }}</td>
-                            <td class="small muted">{{ $token->expires_at?->format('Y-m-d') ?? 'no expiry' }}</td>
-                        </tr>
-                    @endforeach
-                    </tbody>
-                </table>
-                <form method="post" action="{{ route('account.tokens') }}" style="margin-top:12px">
-                    @csrf @method('DELETE')
-                    <button class="btn danger" type="submit">Sign out of every application</button>
-                </form>
-            @endif
-        </div>
+        <div class="stack">
+            <section class="card">
+                <h2 class="card__title">프로필 사진</h2>
+                <p class="card__hint">업무일보의 담당자 표시 등에 쓰입니다.</p>
+                @include('partials.avatar-upload', [
+                    'user' => $user,
+                    'action' => route('account.avatar'),
+                    'removeAction' => route('account.avatar.remove'),
+                ])
+            </section>
 
-        <div class="card">
-            <h2 style="margin-top:0">Recent sign-in</h2>
-            <table>
-                <tbody>
-                <tr><th>Last sign-in</th><td class="small muted">{{ $user->last_login_at?->format('Y-m-d H:i') ?? '—' }}</td></tr>
-                <tr><th>From</th><td class="mono">{{ $user->last_login_ip ?? '—' }}</td></tr>
-                <tr><th>Status</th><td><span class="badge {{ $user->isActive() ? 'ok' : 'bad' }}">{{ $user->status }}</span></td></tr>
-                </tbody>
-            </table>
-            <p class="tiny muted">Something here you do not recognise? Change your password and tell an administrator.</p>
+            <section class="card">
+                <h2 class="card__title">로그인 중인 앱</h2>
+                @if ($signedIn->isEmpty())
+                    <p class="empty" style="padding-bottom:0">지금 로그인해 있는 앱이 없습니다.</p>
+                @else
+                    <ul class="rows">
+                        @foreach ($signedIn as $token)
+                            <li>
+                                <div class="grow">
+                                    <strong>{{ $token->client?->name ?? $token->client_id ?? '알 수 없는 앱' }}</strong>
+                                    <div class="sub">{{ $token->issued_ip }} · {{ When::at($token->expires_at, 'm-d H:i') }}까지</div>
+                                </div>
+                                <div class="when">{{ When::ago($token->created_at) }}</div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+                <form method="post" action="{{ route('account.tokens') }}" style="margin-top:12px"
+                      data-confirm="모든 앱과 다른 브라우저에서 로그아웃할까요? 이 브라우저는 유지됩니다.">
+                    @csrf
+                    @method('delete')
+                    <button type="submit">모든 곳에서 로그아웃</button>
+                </form>
+                <p class="hint">모르는 기록이 있으면 비밀번호를 바꾸고 관리자에게 알려 주세요.</p>
+            </section>
+
+            <section class="card">
+                <h2 class="card__title">최근 로그인</h2>
+                <dl class="kv">
+                    <dt>언제</dt><dd>{{ When::at($user->last_login_at) }}</dd>
+                    <dt>어디서</dt><dd class="mono">{{ $user->last_login_ip ?? '—' }}</dd>
+                    <dt>권한</dt><dd>{{ $user->isSuperAdmin() ? '관리자' : '일반' }}</dd>
+                </dl>
+            </section>
         </div>
     </div>
 @endsection

@@ -1,21 +1,22 @@
-# SSO — authorization center
+# SSO — 계정 센터 (authorization center)
 
-Self-hosted OAuth 2.0 / OpenID Connect issuer for internal services. Laravel 12 on
-PostgreSQL, one container, no external asset build (`no npm`).
+Self-hosted OAuth 2.0 / OpenID Connect issuer for the internal tools, and the one
+place where people and their accounts are managed. Laravel on PostgreSQL, one
+container, no asset build.
 
-The service is designed around three rules:
-
-1. **No public registration.** Every account is created by an administrator.
-2. **Machines never wait for a human.** A client that can prove itself with a shared
-   secret gets a working token in the same request, every time.
-3. **Review happens afterwards.** The administrator looks at what happened and
-   blacklists; that decision takes effect on the next request.
+1. **One user space, two roles.** Everybody is a `user`; a `super_admin` also gets
+   the console. Anyone may register (`/register`), no password policy.
+2. **People first.** The console opens on the user list; every account action is
+   one button on that person's page, and the same actions exist as a JSON API
+   (`docs/api.md`) for applications.
+3. **Disabling is immediate.** Tokens are database rows, checked with the user's
+   status on every use; disabling also deletes the person's browser sessions.
 
 ---
 
 ## Endpoints
 
-All paths are relative to the public mount point (`SSO_ISSUER`, e.g. `https://host/sso`).
+All paths are relative to the issuer (`SSO_ISSUER`, e.g. `https://sso.521985.xyz`).
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -25,152 +26,87 @@ All paths are relative to the public mount point (`SSO_ISSUER`, e.g. `https://ho
 | `POST` | `/oauth/token` | `authorization_code`, `refresh_token`, `client_credentials` |
 | `POST` | `/oauth/introspect` | RFC 7662, requires client authentication |
 | `POST` | `/oauth/revoke` | RFC 7009 |
-| `GET`/`POST` | `/oauth/userinfo` | bearer-protected identity document |
-| `POST` | `/oauth/guest` | silent guest enrolment (see below) |
+| `GET`/`POST` | `/oauth/userinfo` | bearer-protected identity document (`name`, `preferred_username`, `role`, `picture`) |
+| `*` | `/api/me`, `/api/users` | account API, bearer token (`docs/api.md`) |
+| `GET` | `/avatar/{id}/{v}?sig=` | profile picture, anonymous, HMAC-signed URL |
 | `GET` | `/healthz` | liveness |
-| `GET` | `/admin` | console (session auth, administrators only) |
+| `GET` | `/admin` | console (super administrators) |
 
 ## Identities
 
-Two separate account spaces, on purpose:
-
-| Space | Signs in with | Where | Cookie | Fields |
-| --- | --- | --- | --- | --- |
-| User (token subject) | username + password | `/sso/login` | `sso_session` | display name, username, password |
-| Administrator (console) | e-mail + password | `/sso/admin/login` | `sso_admin_session` | name, e-mail, password |
-
-The two use **separate session cookies**, so "signed in" is never ambiguous:
-being signed in to the console is not a client identity, and signing out of one
-does not sign out of the other. When a client sends a browser to
-`/oauth/authorize` that has no *user* session, the sign-in page names the
-application and says console accounts cannot be used — instead of showing a bare
-login form that invites the person to type their console credentials.
-
-A user account carries no e-mail address: the `email` scope and the `email` /
-`email_verified` claims were removed with it. `profile` now yields `name` and
-`preferred_username` (the username), which is what an OIDC client should read
-anyway.
+One account space. A user has a display name, a **username** (the sign-in
+identifier, lower-case), a password, an optional picture and a role (`user` or
+`super_admin`). There is no e-mail address, so no `email` scope or claim and no
+verification mail. The console is the same sign-in as every application; the
+`admin` middleware only checks the role.
 
 ## Token policy
 
 | Subject | Access token | Lifetime | Refresh |
 | --- | --- | --- | --- |
-| User (code flow) | RS256 JWT, `jti` in the database | **7 days** | rotating `refresh_token`, silent |
+| User (code flow) | RS256 JWT, `jti` in the database | **7 days** | rotating `refresh_token` (with `offline_access`) |
 | Confidential client | RS256 JWT | 7 days | re-request (no refresh token) |
-| Guest device | opaque `sso_g_…`, stored as SHA-256 | **none** (`expires_at = null`) | re-post to `/oauth/guest` |
 
 Every token is a database row, so revocation is immediate and does not have to wait
-for a JWT to expire. Revoking an access token, blacklisting a device, disabling a
-user or a client all take effect on the next introspection or `userinfo` call.
+for a JWT to expire: revoking a token, or disabling its user, takes effect on the
+next `userinfo`, introspection or API call.
 
 Refresh tokens rotate on every use. Replaying an already rotated token is treated as
 theft and revokes the whole `family_id` — the client has to re-authenticate.
 
-## The silent guest channel
-
-For machines that hold only a read-only database credential and no user in the loop.
-
-```
-signature = hex( HMAC-SHA256( key = SSO_GUEST_SECRET, message = "sso-guest-v1\n" + device_id ) )
-device_id = a stable environment value: hostname, /etc/machine-id, serial number, container name
-```
-
-```bash
-curl -sS -X POST https://host/sso/oauth/guest \
-  -H 'Content-Type: application/json' \
-  -d '{"device_id":"lab-host-07","algo":"hmac-sha256","signature":"…"}'
-```
-
-```json
-{
-  "access_token": "sso_g_…",
-  "token_type": "Bearer",
-  "expires_in": null,
-  "scope": "db:read",
-  "device_id": "lab-host-07",
-  "device_status": "active",
-  "signature_valid": true,
-  "newly_enrolled": true
-}
-```
-
-Behaviour, exactly as specified:
-
-- **Every request is approved.** Yes, a wrong or missing signature is approved too — it
-  is recorded as suspicious in the audit log and shown in the console, never rejected.
-- **First sight enrols the device** (`guest_devices`, with IP and user agent) and the
-  token works immediately. No approval queue, no delay.
-- **Only one thing refuses service:** an explicit administrator blacklist. A blacklisted
-  device gets `403 access_denied` and its outstanding tokens stop introspecting.
-- **No expiry.** Guest tokens live until revoked or blacklisted. Setting
-  `SSO_GUEST_TOKEN_TTL` gives them a fixed lifetime, in which case a client just calls
-  `/oauth/guest` again — the refresh is silent by construction.
-
-Compute the signature with the built-in command or one shell line:
-
-```bash
-php artisan sso:guest-sign lab-host-07        # prints payload, signature and a ready curl
-printf 'sso-guest-v1\nlab-host-07' | openssl dgst -sha256 -hmac "$SSO_GUEST_SECRET" -r | cut -d' ' -f1
-```
-
 ## Housekeeping
 
-Guest tokens never expire, so `sso:prune` is what keeps the tables bounded. It
-deletes only rows that can no longer authenticate anything: revoked/expired
-tokens, spent authorization codes, superseded guest tokens (the newest live token
-per device is always kept), devices unseen for 180 days — active ones only, so a
-blacklist can never be silently forgotten — and audit rows older than 90 days.
+`sso:prune` deletes rows that can no longer authenticate anything (revoked or
+expired tokens, spent authorization codes) and audit rows older than 90 days.
 
 ```bash
 php artisan sso:prune --dry-run        # via `podman exec sso php artisan sso:prune`
-php artisan sso:prune                  # default: 90d audit, 180d devices
+php artisan sso:prune
 ```
 
 Installed as `sso-prune.timer` (nightly, `Persistent=true`) by `install.sh`.
 
 ## Password reset without e-mail
 
-Users have no e-mail address, so there is no "forgot password" mail. The
-administrator mints a **one-time link** and hands it over out of band:
-
-```
-console → Users → <user> → "Create reset link"
-   ↓
-https://<host>/sso/password/reset/sso_pw_<48 chars>      (shown once)
-   ↓
-the user opens it, sets their own password, the link dies
-```
+There is no "forgot password" mail. On the person's page the administrator either
+sets a password (blank = a 12-character one is generated and shown once) or mints a
+**one-time link** to hand over out of band:
 
 - single use, expires after `SSO_RESET_LINK_TTL` (default 24 h)
 - issuing a new link revokes any earlier unused one
 - only the SHA-256 is stored, so a database dump is not a pile of live credentials
 - the URL is built from `SSO_ISSUER`, so it is publicly openable
-- every creation, use and refusal is in the audit log
 
-**Any** password change — this link or the console's "Replace password" — revokes
-that user's access and refresh tokens. One rule: the old password stops opening
-things, so what it opened is closed.
+**Any** password change revokes that user's access and refresh tokens: the old
+password stops opening things, so what it opened is closed.
 
-Lost password with no link at hand? `php artisan sso:user-password <username>`.
+Lost the last administrator password? `php artisan sso:user-password <username>`.
 
-## Console
+## Console (`/admin`, Korean)
 
-`/admin` — administrators only, no registration route exists anywhere in the app.
+- **사용자** — search (`/` focuses it), filter chips (관리자 / 일반 / 비활성) with counts,
+  a dialog to create someone. Each person has one page: quick actions (관리자 지정,
+  비활성화, 모든 곳에서 로그아웃), name / username / note, password or reset link,
+  picture, the applications they are signed in to, their recent activity, and
+  deletion behind typing the username.
+- **활동 기록** — the audit trail as sentences, filtered by person and by kind; the raw
+  event and metadata stay one click away.
+- **연결된 앱** — OAuth clients; registering a client *is* the consent step.
+- **내 계정** — what every person can change themselves: name, username (with the
+  current password), password, picture, signing out everywhere.
 
-- **Users** — create, disable, replace password. A user has exactly three fields:
-  display name, **username** (the sign-in identifier) and password. There is no
-  e-mail address and therefore no verification mail to send. Disabling kills live
-  tokens immediately.
-- **Clients** — register OAuth clients (public/PKCE or confidential with a secret shown
-  once); registering a client *is* the consent step, so users never see a consent screen.
-- **Guest devices** — the a-posteriori review list: first/last seen, IP, user agent,
-  request count; blacklist (revokes existing tokens) or reinstate.
-- **Tokens** — everything live, with a per-token kill switch.
-- **Blacklist** — deny list for `device`, `user`, `token` (jti) and `client`.
-- **Audit** — append-only trail with a prefix filter.
+Two rules hold in the console and the API alike (`App\Services\UserAccounts`): there is
+always one active super administrator, and nobody can demote, disable or delete
+themselves.
+
+Pictures are cropped to a square and shrunk to 512 px **in the browser**
+(`public/assets/console.js`) — the image has no GD — so a phone photo arrives as
+~50 KB WebP. The server accepts JPEG/PNG/WebP/GIF up to 1 MB.
+
+Times are stored in UTC and printed in `SSO_DISPLAY_TIMEZONE` (default Asia/Seoul).
 
 The first administrator comes from the environment (`sso:bootstrap`, run on every boot,
-no-op once an admin exists).
+no-op once one exists); `sso:role <username> super_admin` promotes from the shell.
 
 ## Configuration
 
@@ -179,13 +115,11 @@ See `.env.example`. The ones that matter:
 | Variable | Meaning |
 | --- | --- |
 | `APP_URL` | internal origin the container listens on (`http://127.0.0.1:3550`) |
-| `SSO_ISSUER` | public base URL **including** `/sso`; becomes the `iss` claim |
-| `SESSION_PATH` | cookie path for the `/sso` mount point |
+| `SSO_ISSUER` | public base URL; becomes the `iss` claim and the origin of picture and reset URLs |
 | `DB_*` | PostgreSQL on the AI host over the tailnet, TLS required |
-| `SSO_GUEST_SECRET` | HMAC key for the guest channel (empty = signatures unverifiable) |
-| `SSO_GUEST_TOKEN_TTL` | `0` = guest tokens never expire |
 | `SSO_ACCESS_TOKEN_TTL` | user access token lifetime, default `604800` (7 days) |
-| `SSO_BOOTSTRAP_ADMIN_*` | first super administrator (a user; skipped once one exists) |
+| `SSO_DISPLAY_TIMEZONE` | zone the console prints times in, default `Asia/Seoul` |
+| `SSO_BOOTSTRAP_ADMIN_*` | first super administrator (skipped once one exists) |
 
 ## Deploy
 
@@ -259,8 +193,10 @@ No Node, no bundler: the console is Blade plus one hand-written stylesheet at
 ```
 app/Http/Controllers/OAuth/   protocol endpoints
 app/Http/Controllers/Admin/   console
-app/Services                  Jwt, SigningKeyService, TokenService, GuestService,
-                              BlacklistService, ClientAuthenticator, AuditLogger
+app/Http/Controllers/Api/     account API (docs/api.md)
+app/Services                  UserAccounts (every account change), TokenService, Jwt,
+                              SigningKeyService, ClientAuthenticator, AuditLogger
 deploy/                       Containerfile, nginx/php/supervisor config, quadlet, caddy
 docs/DESIGN.md                decisions and threat notes
+docs/api.md                   account API
 ```

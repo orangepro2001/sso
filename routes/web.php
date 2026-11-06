@@ -81,12 +81,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
-        Route::get('users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('users', [UserController::class, 'store'])->name('users.store');
+        // Old addresses still in bookmarks: the list opens the "new user" dialog.
+        Route::get('users/create', [UserController::class, 'create'])->name('users.create');
+        Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
         Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::post('users/{user}/role', [UserController::class, 'role'])->name('users.role');
+        Route::post('users/{user}/status', [UserController::class, 'status'])->name('users.status');
         Route::post('users/{user}/password', [UserController::class, 'resetPassword'])->name('users.password');
         Route::post('users/{user}/reset-link', [UserController::class, 'resetLink'])->name('users.reset-link');
+        Route::post('users/{user}/avatar', [UserController::class, 'avatar'])->name('users.avatar');
+        Route::delete('users/{user}/avatar', [UserController::class, 'avatarRemove'])->name('users.avatar.remove');
+        Route::post('users/{user}/sign-out', [UserController::class, 'signOut'])->name('users.sign-out');
 
         Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/create', [ClientController::class, 'create'])->name('clients.create');

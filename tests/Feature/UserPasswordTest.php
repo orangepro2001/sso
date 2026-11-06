@@ -29,11 +29,12 @@ class UserPasswordTest extends TestCase
     {
         $this->signIn();
 
-        $response = $this->get('/admin/users/create')->assertOk();
+        $this->get('/admin/users/create')->assertRedirect(route('admin.users.index', ['new' => 1]));
+        $response = $this->get('/admin/users?new=1')->assertOk();
 
-        $response->assertSee('leave blank to generate one');
+        $response->assertSee('비워 두면 자동으로 만듭니다');
         // No value attribute on the password input.
-        $this->assertDoesNotMatchRegularExpression('/id="password"[^>]*value="[^"]+"/', $response->getContent());
+        $this->assertDoesNotMatchRegularExpression('/id="new-password"[^>]*value="[^"]+"/', $response->getContent());
     }
 
     public function test_a_blank_password_is_generated_and_shown_once(): void
@@ -46,7 +47,8 @@ class UserPasswordTest extends TestCase
             'password' => '',
         ]);
 
-        $response->assertRedirect(route('admin.users.index'));
+        $user = User::query()->where('username', 'generated')->firstOrFail();
+        $response->assertRedirect(route('admin.users.show', $user));
         $generated = session('generated_password');
         $this->assertIsArray($generated);
         $this->assertArrayHasKey('generated', $generated);
@@ -102,10 +104,11 @@ class UserPasswordTest extends TestCase
         $user = User::factory()->create(['username' => 'editable']);
         $this->signIn();
 
-        $response = $this->get("/admin/users/{$user->id}/edit")->assertOk();
+        $this->get("/admin/users/{$user->id}/edit")->assertRedirect(route('admin.users.show', $user));
+        $response = $this->get("/admin/users/{$user->id}")->assertOk();
 
         $this->assertDoesNotMatchRegularExpression('/id="new-password"[^>]*value="[^"]+"/', $response->getContent());
-        $response->assertSee('Only this button changes the password', false);
+        $response->assertSee('비밀번호 설정');
     }
 
     public function test_replacing_the_password_shows_the_new_one_once(): void
@@ -114,7 +117,7 @@ class UserPasswordTest extends TestCase
         $this->signIn();
 
         $response = $this->post("/admin/users/{$user->id}/password", ['password' => '']);
-        $response->assertRedirect(route('admin.users.edit', $user));
+        $response->assertRedirect(route('admin.users.show', $user));
 
         $generated = session('generated_password');
         $this->assertArrayHasKey('rotated', $generated);

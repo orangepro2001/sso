@@ -1,49 +1,43 @@
 @extends('layouts.app')
 
-@section('title', 'Set a new password')
+@section('title', '새 비밀번호')
 
 @section('main-class', 'narrow')
 
 @section('content')
     @if ($invalid)
-        <h1>This link cannot be used</h1>
+        <h1>이 링크는 쓸 수 없습니다</h1>
         <p class="lead">
-            The reset link is unknown, has expired, was already used, or was replaced by
-            a newer one. Ask an administrator for a fresh link.
+            없는 링크이거나, 기한이 지났거나, 이미 썼거나, 더 새 링크가 발급되었습니다.
+            관리자에게 새 링크를 요청하세요.
         </p>
         <div class="card">
             <div class="row">
-                <a class="btn primary" href="{{ route('login') }}">Go to sign-in</a>
-                <a class="btn" href="{{ route('home') }}">Home</a>
+                <a class="btn primary" href="{{ route('login') }}">로그인으로</a>
+                <a class="btn" href="{{ route('home') }}">처음으로</a>
             </div>
         </div>
     @else
-        <h1>Set a new password</h1>
+        <h1>새 비밀번호 정하기</h1>
         <p class="lead">
-            For <strong class="mono">{{ $user->username }}</strong>. This link works once and
-            then stops working.
+            <strong class="mono">{{ $user->username }}</strong> 계정입니다. 이 링크는 한 번만 쓸 수 있습니다.
         </p>
 
         <form class="card" method="post" action="{{ route('password.reset.update', ['token' => $token]) }}">
             @csrf
 
-            <label for="password">New password</label>
-            <input id="password" type="password" name="password" required autofocus
-                   autocomplete="new-password">
+            <label for="password">새 비밀번호</label>
+            <input id="password" type="password" name="password" required autofocus autocomplete="new-password">
 
-            <label for="password_confirmation">Repeat the new password</label>
-            <input id="password_confirmation" type="password" name="password_confirmation" required
-                   autocomplete="new-password">
+            <label for="password_confirmation">새 비밀번호 확인</label>
+            <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
 
-            <div class="row" style="margin-top:20px">
-                <button class="primary" type="submit">Set password</button>
-                <a class="btn" href="{{ route('login') }}">Cancel</a>
+            <div class="form-actions" style="margin-top:20px">
+                <button class="primary" type="submit">비밀번호 설정</button>
+                <a class="btn" href="{{ route('login') }}">취소</a>
             </div>
 
-            <p class="small muted" style="margin-bottom:0">
-                Setting a password signs this account out everywhere: its access and
-                refresh tokens are revoked.
-            </p>
+            <p class="hint">설정하면 이 계정은 모든 앱에서 로그아웃됩니다. 새 비밀번호로 다시 로그인하세요.</p>
         </form>
     @endif
 @endsection

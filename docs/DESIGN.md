@@ -30,14 +30,9 @@ is stored. That combination is deliberate:
 - offline verification for the common case (no round trip per request),
 - instant revocation for the case that matters (a leaked laptop, a runaway script).
 
-Because every token has a row, `introspect`, `userinfo`, the console's revoke button
-and the blacklist all agree immediately. A pure-JWT design would have to wait out the
-`exp` claim.
-
-Guest tokens are the inverse: opaque (`sso_g_…`), stored only as SHA-256, no signature,
-no expiry. A guest is a machine with a read-only credential; there is nothing to verify
-offline, and the blacklist is the only thing that must be fast. Opaque is also what
-makes "no expiry" safe: a leaked guest token can be killed server-side in one request.
+Because every token has a row, `introspect`, `userinfo`, the account API and the
+console's "sign out everywhere" agree immediately. A pure-JWT design would have to wait
+out the `exp` claim.
 
 ## 4. Refresh rotation with family revocation
 
@@ -46,34 +41,13 @@ token and a rotating refresh token, so a client refreshes silently, and it treat
 replayed refresh token as proof of theft: the whole `family_id` is revoked and the
 client must authenticate again. This is the standard defence and it costs one column.
 
-## 5. The guest channel deliberately has no gate
+## 5. The guest channel (removed 2026-11-06)
 
-Requirement: even suspicious requests are approved, a human reviews later. So
-`/oauth/guest` has exactly one rejection path — an explicit blacklist — and everything
-else is recorded and allowed:
-
-- unknown device → enrol, return a working token, flag `newly_enrolled`,
-- bad or missing signature → return a working token, flag `signature_valid: false`,
-- a device that spams → rate limit (120/min per IP) only, because a rate limit is not
-  a review queue.
-
-What makes this defensible instead of reckless:
-
-| Risk | Mitigation |
-| --- | --- |
-| Anyone on the network can ask for a token | the token is only as useful as `db:read`; the guest scope is fixed by `SSO_GUEST_SCOPE` |
-| A stranger enrols a device | it is visible in the console with IP/user agent, and one click blacklists it |
-| Signature is bypassable | the signature is not a gate, it is a *label*: `signature_valid` tells the reviewer whether the device knew the secret |
-| The secret leaks | rotate `SSO_GUEST_SECRET`; existing devices keep working, new signatures differ, and the review list shows the change |
-
-The signature exists to let the reviewer sort a long list, not to keep people out.
-That is a real design choice, not an accident.
-
-`signature = hex(HMAC-SHA256(SSO_GUEST_SECRET, "sso-guest-v1\n" + device_id))`
-
-The `sso-guest-v1` prefix is a version tag: if the scheme ever changes, v1 signatures
-become distinguishable instead of silently wrong. The device id is compared with
-`hash_equals`, and the device id itself is length-bounded and trimmed before use.
+There used to be a silent `/oauth/guest` channel for machines, with a blacklist and an
+a-posteriori review list. Nothing called it and the only client is work-report, so it
+was removed together with the blacklist and registration invites; their tables are
+left in place, unread. Disabling a user or revoking a token covers what the blacklist
+did for people.
 
 ## 6. Key handling
 

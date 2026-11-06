@@ -70,7 +70,7 @@ class ClientController extends Controller
         ], $request);
 
         return redirect()->route('admin.clients.edit', $client)
-            ->with('status', 'Client registered.')
+            ->with('status', '앱을 등록했습니다.')
             // The secret is shown exactly once, straight after creation.
             ->with('client_secret', $plainSecret);
     }
@@ -115,7 +115,7 @@ class ClientController extends Controller
         ], $request);
 
         return redirect()->route('admin.clients.edit', $client)
-            ->with('status', 'Client updated.')
+            ->with('status', '앱 설정을 저장했습니다.')
             ->with('client_secret', $plainSecret);
     }
 

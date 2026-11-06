@@ -75,13 +75,15 @@ class PasswordResetService
     /**
      * A password change ends every session that password could have opened.
      * Short-lived access tokens are revoked too, so "I reset my password" actually
-     * means "nobody stays signed in".
+     * means "nobody stays signed in". $keepJti spares one access token: the one an
+     * API client used to make this very change.
      */
-    public function revokeCredentials(User $user): array
+    public function revokeCredentials(User $user, ?string $keepJti = null): array
     {
         $access = AccessToken::query()
             ->where('user_id', $user->id)
             ->whereNull('revoked_at')
+            ->when($keepJti !== null, fn ($q) => $q->where('jti', '!=', $keepJti))
             ->update(['revoked_at' => now()]);
 
         $refresh = RefreshToken::query()

@@ -41,6 +41,9 @@ return [
     'refresh_token_ttl' => (int) env('SSO_REFRESH_TOKEN_TTL', 2592000),
     'auth_code_ttl' => 300,
 
+    // What the console prints times in (App\Support\When); the clock stays UTC.
+    'display_timezone' => (string) env('SSO_DISPLAY_TIMEZONE', 'Asia/Seoul'),
+
     /*
     |--------------------------------------------------------------------------
     | Password reset links
