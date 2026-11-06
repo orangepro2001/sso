@@ -147,7 +147,9 @@ podman exec sso cat /run/secrets/sso_bootstrap_admin_password   # read it back w
 ### Public entry point
 
 The service binds every interface by design, so it is also served publicly. Two
-caddy listeners exist on this host and both strip `/sso` before forwarding:
+caddy listeners exist on this host. The tailnet one strips `/sso` before forwarding;
+the public one gives the service its own origin and proxies root paths unchanged,
+with the old `521985.xyz/sso…` URLs answered by a 308 to `sso.521985.xyz`:
 
 | Listener | File | Serves |
 | --- | --- | --- |
