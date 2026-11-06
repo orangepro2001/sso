@@ -86,6 +86,46 @@ class AuthorizationCodeFlowTest extends TestCase
         ])->assertStatus(400)->assertJsonPath('error', 'invalid_grant');
     }
 
+    /**
+     * The native app (work-report Android, AppAuth): a custom-scheme redirect and no
+     * `openid`. The token answer must leave id_token out, not send it as null:
+     * Android's org.json reads a JSON null as the string "null" and AppAuth refuses
+     * the sign-in with "Unable to parse ID Token" (seen on a phone, 2026-11-06).
+     */
+    public function test_a_native_app_without_openid_gets_no_id_token_key(): void
+    {
+        $redirect = 'dev.workreport.app:/oauth2redirect';
+        $client = $this->client([
+            'type' => OauthClient::TYPE_PUBLIC, 'secret_hash' => null,
+            'redirect_uris' => [$redirect], 'allowed_scopes' => ['profile', 'offline_access'],
+        ]);
+        [$verifier, $challenge] = $this->pkce();
+        $this->login();
+
+        $location = (string) $this->get('/oauth/authorize?'.http_build_query([
+            'response_type' => 'code', 'client_id' => $client->client_id, 'redirect_uri' => $redirect,
+            'scope' => 'profile offline_access', 'state' => 's', 'code_challenge' => $challenge,
+            'code_challenge_method' => 'S256',
+        ]))->assertRedirect()->headers->get('Location');
+        $this->assertStringStartsWith($redirect.'?', $location);
+        parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+
+        $token = $this->postJson('/oauth/token', [
+            'grant_type' => 'authorization_code', 'client_id' => $client->client_id,
+            'code' => $query['code'], 'redirect_uri' => $redirect, 'code_verifier' => $verifier,
+        ])->assertOk()->assertJsonPath('scope', 'profile offline_access');
+
+        $this->assertArrayNotHasKey('id_token', $token->json());
+        $this->assertNotEmpty($token->json('refresh_token'));
+
+        $refreshed = $this->postJson('/oauth/token', [
+            'grant_type' => 'refresh_token', 'client_id' => $client->client_id,
+            'refresh_token' => $token->json('refresh_token'),
+        ])->assertOk();
+        $this->assertArrayNotHasKey('id_token', $refreshed->json());
+        $this->assertNotContains(null, $refreshed->json());
+    }
+
     public function test_a_wrong_pkce_verifier_is_rejected(): void
     {
         $client = $this->client();

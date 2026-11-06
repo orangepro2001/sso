@@ -46,6 +46,12 @@ class TokenController extends Controller
             return $e->toJsonResponse();
         }
 
+        // RFC 6749 §5.1: a parameter that does not apply is left out, never null. A JSON
+        // null breaks real clients: Android's org.json reads it as the string "null",
+        // and AppAuth then tries to parse "null" as an ID token and refuses the sign-in
+        // (work-report's Android app asks for no `openid`, so it has no id_token).
+        $payload = array_filter($payload, fn ($v) => $v !== null);
+
         return response()->json($payload)->withHeaders([
             'Cache-Control' => 'no-store',
             'Pragma' => 'no-cache',
