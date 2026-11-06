@@ -288,4 +288,36 @@ class AuthorizationCodeFlowTest extends TestCase
 
         $this->withHeader('Authorization', 'Bearer '.$access)->getJson('/oauth/userinfo')->assertStatus(401);
     }
+
+    public function test_userinfo_carries_the_role(): void
+    {
+        $client = OauthClient::factory()->confidential('very-secret-1')->create();
+        $user = $this->login();
+
+        [$verifier, $challenge] = $this->pkce();
+
+        $location = $this->get('/oauth/authorize?'.http_build_query([
+            'response_type' => 'code',
+            'client_id' => $client->client_id,
+            'redirect_uri' => 'https://client.example/callback',
+            'scope' => 'openid profile',
+            'code_challenge' => $challenge,
+            'code_challenge_method' => 'S256',
+        ]))->headers->get('Location');
+        parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+
+        $access = $this->postJson('/oauth/token', [
+            'grant_type' => 'authorization_code',
+            'client_id' => $client->client_id,
+            'client_secret' => 'very-secret-1',
+            'code' => $query['code'],
+            'code_verifier' => $verifier,
+        ])->assertOk()->json('access_token');
+
+        $user->forceFill(['role' => User::ROLE_SUPER_ADMIN])->save();
+
+        $this->withHeader('Authorization', 'Bearer '.$access)->getJson('/oauth/userinfo')
+            ->assertOk()
+            ->assertJsonPath('role', 'super_admin');
+    }
 }

@@ -394,6 +394,7 @@ class TokenService
         if (in_array('profile', $scopes, true)) {
             $claims['name'] = $user->name;
             $claims['preferred_username'] = $user->username;
+            $claims['role'] = $user->role;
             $claims['created_at'] = $user->created_at?->getTimestamp();
         }
 

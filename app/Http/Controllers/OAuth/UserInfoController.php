@@ -57,6 +57,9 @@ class UserInfoController extends Controller
         if (in_array('profile', $scopes, true)) {
             $body['name'] = $user->name;
             $body['preferred_username'] = $user->username;
+            // Relying parties decide what a super administrator may do in their own
+            // application (work-report: edit anybody's issue).
+            $body['role'] = $user->role;
             $body['created_at'] = $user->created_at?->getTimestamp();
 
             // Signed URL rather than a session-protected one: the relying party reads
