@@ -5,7 +5,7 @@
 @section('content')
     <main class="narrow">
         <h1>Authorization center</h1>
-        <p class="lead">One account for the internal tools. Administrators create accounts — or hand out an invite.</p>
+        <p class="lead">One account for the internal tools.</p>
 
         <div class="card">
             @if ($user)
@@ -20,6 +20,9 @@
                         <a class="btn primary" href="{{ route('home') }}">Continue</a>
                     @endif
                     <a class="btn" href="{{ route('account') }}">Your account</a>
+                    @if ($user->isSuperAdmin())
+                        <a class="btn" href="{{ route('admin.dashboard') }}">Console</a>
+                    @endif
                     <form method="post" action="{{ route('logout') }}">
                         @csrf
                         <button class="link" type="submit">Sign out</button>
@@ -28,11 +31,8 @@
             @else
                 <div class="row">
                     <a class="btn primary" href="{{ route('login') }}">Sign in</a>
-                    <a class="btn" href="{{ route('admin.login') }}">Administrator console</a>
+                    <a class="btn" href="{{ route('register') }}">Register</a>
                 </div>
-                <p class="tiny muted" style="margin-bottom:0">
-                    No account? Ask an administrator for an invite link — registration is closed otherwise.
-                </p>
             @endif
         </div>
 

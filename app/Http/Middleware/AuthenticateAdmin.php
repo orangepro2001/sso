@@ -2,32 +2,34 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Admin;
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The console is closed by default: no registration, only admins created by an
- * admin (or the bootstrap one from the environment) can log in.
+ * The console is for users whose role is `super_admin`. There is one sign-in (the
+ * user one); this only checks the role and then exposes the user through the
+ * `admin` guard, which is what the console controllers read for audit and
+ * `created_by`.
  */
 class AuthenticateAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! Auth::guard('admin')->check()) {
-            return redirect()->guest(route('admin.login'));
+        /** @var User|null $user */
+        $user = Auth::guard('web')->user();
+
+        if ($user === null) {
+            return redirect()->guest(route('login'));
         }
 
-        /** @var Admin|null $admin */
-        $admin = Auth::guard('admin')->user();
-        if ($admin === null || ! $admin->active) {
-            Auth::guard('admin')->logout();
-            $request->session()->invalidate();
-
-            return redirect()->route('admin.login')->withErrors(['email' => 'This administrator account is disabled.']);
+        if (! $user->isActive() || ! $user->isSuperAdmin()) {
+            abort(403, 'The console is for super administrators.');
         }
+
+        Auth::guard('admin')->setUser($user);
 
         return $next($request);
     }

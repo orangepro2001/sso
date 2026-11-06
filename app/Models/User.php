@@ -18,8 +18,15 @@ class User extends Authenticatable
 
     public const STATUS_DISABLED = 'disabled';
 
+    /** The console is open to this role only (AuthenticateAdmin). */
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+
+    public const ROLE_USER = 'user';
+
+    public const ROLES = [self::ROLE_USER, self::ROLE_SUPER_ADMIN];
+
     protected $fillable = [
-        'name', 'username', 'password', 'status', 'last_login_at', 'last_login_ip', 'created_by', 'note',
+        'name', 'username', 'role', 'password', 'status', 'last_login_at', 'last_login_ip', 'created_by', 'note',
         'avatar_path', 'avatar_mime', 'avatar_updated_at',
     ];
 
@@ -72,6 +79,11 @@ class User extends Authenticatable
         return $this->avatar_path !== null;
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
@@ -79,6 +91,6 @@ class User extends Authenticatable
 
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(Admin::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

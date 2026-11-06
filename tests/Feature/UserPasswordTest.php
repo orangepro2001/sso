@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Admin;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -18,10 +17,10 @@ class UserPasswordTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function signIn(): Admin
+    private function signIn(): User
     {
-        $admin = Admin::factory()->create(['email' => 'boss@example.test', 'password' => 'boss-password-1']);
-        $this->post('/admin/login', ['email' => 'boss@example.test', 'password' => 'boss-password-1']);
+        $admin = User::factory()->superAdmin()->create(['username' => 'boss']);
+        $this->actingAs($admin, 'web');
 
         return $admin;
     }
@@ -59,6 +58,8 @@ class UserPasswordTest extends TestCase
         $user = User::query()->where('username', 'generated')->firstOrFail();
         $this->assertTrue(Hash::check($plain, $user->password));
 
+        // Admin and user share one session now: sign the admin out first.
+        auth('web')->logout();
         $this->post('/login', ['username' => 'generated', 'password' => $plain])->assertRedirect();
         $this->assertAuthenticatedAs($user, 'web');
     }
@@ -76,21 +77,24 @@ class UserPasswordTest extends TestCase
         $user = User::query()->where('username', 'typed')->firstOrFail();
         $this->assertTrue(Hash::check('chosen-password-42', $user->password));
 
+        // Admin and user share one session now: sign the admin out first.
+        auth('web')->logout();
         $this->post('/login', ['username' => 'typed', 'password' => 'chosen-password-42'])->assertRedirect();
         $this->assertAuthenticatedAs($user, 'web');
     }
 
-    public function test_a_short_typed_password_is_rejected(): void
+    public function test_a_short_typed_password_is_accepted(): void
     {
+        // No strength policy, by request (2026-11-06).
         $this->signIn();
 
         $this->post('/admin/users', [
             'name' => 'Short',
             'username' => 'shortpw',
-            'password' => 'too-short',
-        ])->assertSessionHasErrors('password');
+            'password' => '1',
+        ])->assertSessionHasNoErrors();
 
-        $this->assertNull(User::query()->where('username', 'shortpw')->first());
+        $this->assertTrue(Hash::check('1', User::query()->where('username', 'shortpw')->firstOrFail()->password));
     }
 
     public function test_the_edit_form_does_not_prefill_a_password(): void

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Admin;
 use App\Models\OauthClient;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -12,72 +11,110 @@ class AdminConsoleTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function admin(): Admin
+    private function signIn(): User
     {
-        return Admin::factory()->create(['email' => 'boss@example.test', 'password' => 'boss-password-1']);
-    }
-
-    private function signIn(): Admin
-    {
-        $admin = $this->admin();
-        $this->post('/admin/login', ['email' => 'boss@example.test', 'password' => 'boss-password-1'])
-            ->assertRedirect(route('admin.dashboard'));
+        $admin = User::factory()->superAdmin()->create(['username' => 'boss', 'password' => 'boss']);
+        $this->post('/login', ['username' => 'boss', 'password' => 'boss'])->assertRedirect();
 
         return $admin;
     }
 
-    public function test_the_console_is_closed_to_anonymous_visitors(): void
+    public function test_the_console_sends_anonymous_visitors_to_the_user_sign_in(): void
     {
-        $this->get('/admin')->assertRedirect(route('admin.login'));
-        $this->get('/admin/users')->assertRedirect(route('admin.login'));
-        $this->get('/admin/devices')->assertRedirect(route('admin.login'));
+        $this->get('/admin')->assertRedirect(route('login'));
+        $this->get('/admin/users')->assertRedirect(route('login'));
+        $this->get('/admin/devices')->assertRedirect(route('login'));
     }
 
-    public function test_the_user_sign_in_page_points_administrators_elsewhere(): void
+    public function test_an_ordinary_user_is_refused_the_console(): void
     {
-        // The two identity spaces have separate forms; a person holding an admin
-        // account must be told so instead of being left with "credentials do not
-        // match" (that is exactly what happened in practice).
-        $this->get('/login')
-            ->assertOk()
-            ->assertSee('Administrator?')
-            ->assertSee(route('admin.login'));
+        $this->actingAs(User::factory()->create(), 'web');
+
+        $this->get('/admin')->assertForbidden();
+        $this->get('/admin/users')->assertForbidden();
     }
 
-    public function test_an_admin_account_does_not_sign_in_on_the_user_page(): void
+    public function test_a_super_admin_signs_in_once_and_reaches_the_console(): void
     {
-        $this->admin();
+        User::factory()->superAdmin()->create(['username' => 'boss', 'password' => 'x']);
 
-        $this->post('/login', ['username' => 'boss@example.test', 'password' => 'boss-password-1'])
-            ->assertSessionHasErrors('username');
+        // Visiting the console first, then signing in, comes back to the console.
+        $this->get('/admin')->assertRedirect(route('login'));
+        $this->post('/login', ['username' => 'boss', 'password' => 'x'])
+            ->assertRedirect(route('admin.dashboard'));
 
-        $this->assertGuest('web');
-        $this->assertGuest('admin');
+        $this->get('/admin')->assertOk()->assertSee('Users');
+        $this->get('/')->assertSee(route('admin.dashboard'));
     }
 
-    public function test_a_user_account_does_not_sign_in_on_the_console_page(): void
+    public function test_a_disabled_super_admin_is_refused_the_console(): void
     {
-        User::factory()->create(['username' => 'plainuser', 'password' => 'a-very-good-password']);
+        $this->actingAs(User::factory()->superAdmin()->disabled()->create(), 'web');
 
-        // A user account is not an admin account, even with the right password.
-        $this->post('/admin/login', ['email' => 'plainuser', 'password' => 'a-very-good-password'])
-            ->assertSessionHasErrors('email');
-
-        $this->assertGuest('admin');
+        $this->get('/admin')->assertForbidden();
     }
 
-    public function test_the_home_page_links_to_both_sign_in_pages(): void
+    public function test_the_old_console_sign_in_link_returns_to_the_console(): void
     {
-        $this->get('/')
-            ->assertOk()
-            ->assertSee('Administrator console')
-            ->assertSee('User sign-in');
+        $this->get('/admin/login')->assertRedirect(route('login'));
+        $this->assertSame(route('admin.dashboard'), session('url.intended'));
     }
 
-    public function test_there_is_no_registration_route(): void
+    public function test_anyone_can_register_without_a_password_policy(): void
     {
-        $this->get('/register')->assertNotFound();
-        $this->post('/register', [])->assertNotFound();
+        $this->get('/register')->assertOk();
+
+        $this->post('/register', [
+            'name' => '새 사람',
+            'username' => 'NewOne',
+            'password' => '1',
+            'password_confirmation' => '1',
+        ])->assertRedirect(route('home'));
+
+        $user = User::query()->where('username', 'newone')->firstOrFail();
+        $this->assertSame(User::ROLE_USER, $user->role);
+        $this->assertAuthenticatedAs($user, 'web');
+        $this->get('/admin')->assertForbidden();
+    }
+
+    public function test_old_invite_links_still_open_the_form(): void
+    {
+        $this->get('/register/some-old-code')->assertOk()->assertSee('Create account');
+    }
+
+    public function test_registration_still_rejects_duplicates_and_bad_usernames(): void
+    {
+        User::factory()->create(['username' => 'taken']);
+
+        foreach (['taken', 'ab', 'has space'] as $bad) {
+            $this->post('/register', [
+                'name' => 'X', 'username' => $bad, 'password' => 'p', 'password_confirmation' => 'p',
+            ])->assertSessionHasErrors('username');
+        }
+    }
+
+    public function test_a_super_admin_can_promote_and_demote(): void
+    {
+        $this->signIn();
+        $user = User::factory()->create(['username' => 'promoted']);
+
+        $this->put("/admin/users/{$user->id}", [
+            'name' => $user->name, 'username' => 'promoted', 'status' => User::STATUS_ACTIVE, 'role' => User::ROLE_SUPER_ADMIN,
+        ])->assertRedirect(route('admin.users.index'));
+        $this->assertTrue($user->fresh()->isSuperAdmin());
+
+        $this->put("/admin/users/{$user->id}", [
+            'name' => $user->name, 'username' => 'promoted', 'status' => User::STATUS_ACTIVE, 'role' => 'emperor',
+        ])->assertSessionHasErrors('role');
+    }
+
+    public function test_the_role_command_sets_and_prints_a_role(): void
+    {
+        User::factory()->create(['username' => 'cli']);
+
+        $this->artisan('sso:role', ['username' => 'cli', 'role' => 'super_admin'])->assertSuccessful();
+        $this->assertDatabaseHas('users', ['username' => 'cli', 'role' => 'super_admin']);
+        $this->artisan('sso:role', ['username' => 'cli', 'role' => 'nope'])->assertFailed();
     }
 
     public function test_an_admin_can_create_a_user_and_the_user_can_sign_in(): void
@@ -88,6 +125,7 @@ class AdminConsoleTest extends TestCase
             'name' => 'New Person',
             'username' => 'newperson',
             'password' => 'a-very-good-password',
+            'role' => User::ROLE_USER,
         ])->assertRedirect(route('admin.users.index'));
 
         $user = User::query()->where('username', 'newperson')->firstOrFail();
@@ -95,6 +133,8 @@ class AdminConsoleTest extends TestCase
         // Three fields, no e-mail anywhere.
         $this->assertArrayNotHasKey('email', $user->getAttributes());
 
+        // Admin and user share one session now: sign the admin out first.
+        auth('web')->logout();
         $this->post('/login', ['username' => 'newperson', 'password' => 'a-very-good-password'])
             ->assertRedirect();
         $this->assertAuthenticatedAs($user, 'web');
@@ -108,10 +148,13 @@ class AdminConsoleTest extends TestCase
             'name' => 'Case Test',
             'username' => 'MiXeD.Case-1',
             'password' => 'a-very-good-password',
+            'role' => User::ROLE_USER,
         ])->assertRedirect();
 
         $this->assertDatabaseHas('users', ['username' => 'mixed.case-1']);
 
+        // Admin and user share one session now: sign the admin out first.
+        auth('web')->logout();
         $this->post('/login', ['username' => 'MIXED.case-1', 'password' => 'a-very-good-password'])
             ->assertRedirect();
         $this->assertAuthenticated('web');
@@ -144,6 +187,7 @@ class AdminConsoleTest extends TestCase
             'name' => 'Renamed',
             'username' => 'stable',
             'status' => User::STATUS_ACTIVE,
+            'role' => User::ROLE_USER,
         ])->assertRedirect(route('admin.users.index'));
 
         $this->assertSame('Renamed', $user->fresh()->name);
@@ -171,21 +215,6 @@ class AdminConsoleTest extends TestCase
         $this->post('/login', ['username' => 'off', 'password' => 'a-very-good-password'])
             ->assertSessionHasErrors('username');
         $this->assertGuest('web');
-    }
-
-    public function test_remember_me_works_for_an_admin(): void
-    {
-        // The admins table used to lack remember_token, so ticking this box made
-        // the login itself fail with an undefined-column error.
-        $this->admin();
-
-        $this->post('/admin/login', [
-            'email' => 'boss@example.test',
-            'password' => 'boss-password-1',
-            'remember' => '1',
-        ])->assertRedirect(route('admin.dashboard'));
-
-        $this->assertAuthenticated('admin');
     }
 
     public function test_remember_me_works_for_a_user(): void
@@ -222,14 +251,14 @@ class AdminConsoleTest extends TestCase
         $this->assertNotNull($client->secret_hash);
     }
 
-    public function test_the_bootstrap_command_creates_the_first_admin_only_once(): void
+    public function test_the_bootstrap_command_creates_the_first_super_admin_only_once(): void
     {
         $this->artisan('sso:bootstrap')->assertSuccessful();
 
-        $this->assertDatabaseHas('admins', ['email' => 'root@example.test']);
+        $this->assertDatabaseHas('users', ['username' => 'root', 'role' => 'super_admin']);
 
         $this->artisan('sso:bootstrap')->assertSuccessful();
-        $this->assertSame(1, Admin::query()->count());
+        $this->assertSame(1, User::query()->where('role', 'super_admin')->count());
     }
 
     public function test_the_audit_log_records_admin_actions(): void
@@ -240,6 +269,7 @@ class AdminConsoleTest extends TestCase
             'name' => 'Audited',
             'username' => 'audited',
             'password' => 'a-very-good-password',
+            'role' => User::ROLE_USER,
         ]);
 
         $this->assertDatabaseHas('audit_logs', ['event' => 'admin.user.created']);

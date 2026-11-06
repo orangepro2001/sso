@@ -27,7 +27,7 @@
         <form class="card" method="post" action="{{ route('password.reset.update', ['token' => $token]) }}">
             @csrf
 
-            <label for="password">New password (min. 12 characters)</label>
+            <label for="password">New password</label>
             <input id="password" type="password" name="password" required autofocus
                    autocomplete="new-password">
 

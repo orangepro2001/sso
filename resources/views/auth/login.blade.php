@@ -12,11 +12,9 @@
              what makes people type their console credentials into it. --}}
         <p class="lead">
             <strong>{{ $requestingClient }}</strong> wants to sign you in.
-            Use a user account — console administrator accounts cannot be used by
-            applications.
         </p>
     @else
-        <p class="lead">Use the credentials an administrator gave you.</p>
+        <p class="lead">One account for every internal tool, including the console.</p>
     @endif
 
     <form class="card" method="post" action="{{ route('login.store') }}@if (! empty($next))?next={{ urlencode($next) }}@endif">
@@ -39,16 +37,5 @@
         </div>
     </form>
 
-    {{-- Administrators are a separate identity space with their own sign-in page
-         and their own session. Said unconditionally, so this hint cannot be used
-         to enumerate admins. --}}
-    <div class="card">
-        <p class="small muted" style="margin:0">
-            <strong>Administrator?</strong> The console has its own sign-in page:
-            <a href="{{ route('admin.login') }}">console sign-in</a>.
-            Administrator accounts do not work here, and user accounts do not work
-            there. The two sessions are independent, so being signed in to the
-            console does not sign you in to applications.
-        </p>
-    </div>
+    <p class="small muted">No account? <a href="{{ route('register') }}">Register</a>.</p>
 @endsection

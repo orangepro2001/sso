@@ -2,68 +2,61 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Admin;
+use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Hash;
 
 /**
- * Bootstrap (and emergency) administrator creation.
+ * Bootstrap (and emergency) super administrator.
  *
- * Normal account provisioning happens in the console, but the very first
- * administrator has to come from somewhere: this reads the environment and is a
- * no-op once at least one admin exists, so it is safe to run on every boot.
+ * The console is open to users with role super_admin, and the first one has to come
+ * from somewhere: this reads the environment and is a no-op once any active super
+ * administrator exists, so it is safe to run on every boot.
  */
 class BootstrapAdminCommand extends Command
 {
-    protected $signature = 'sso:bootstrap {--force : reset the bootstrap admin password even if admins exist}';
+    protected $signature = 'sso:bootstrap {--force : reset the bootstrap user\'s password and role even if a super administrator exists}';
 
-    protected $description = 'Create the bootstrap administrator from the environment (no-op when admins exist)';
+    protected $description = 'Create the bootstrap super administrator from the environment (no-op when one exists)';
 
     public function handle(AuditLogger $audit): int
     {
-        $email = strtolower(trim((string) config('sso.bootstrap.email', '')));
-        $password = $this->password();
-
-        if ($email === '') {
-            $this->components->warn('SSO_BOOTSTRAP_ADMIN_EMAIL is empty; skipping.');
+        $username = strtolower(trim((string) config('sso.bootstrap.username', '')));
+        if ($username === '') {
+            $this->components->warn('SSO_BOOTSTRAP_ADMIN_USERNAME is empty; skipping.');
 
             return self::SUCCESS;
         }
 
-        $existing = Admin::query()->count();
+        $existing = User::query()->where('role', User::ROLE_SUPER_ADMIN)->where('status', User::STATUS_ACTIVE)->count();
         if ($existing > 0 && ! $this->option('force')) {
-            $this->components->info("{$existing} administrator(s) already exist; nothing to do.");
+            $this->components->info("{$existing} super administrator(s) already exist; nothing to do.");
 
             return self::SUCCESS;
         }
 
+        $password = $this->password();
         if ($password === '') {
             $this->components->error('No bootstrap password: set SSO_BOOTSTRAP_ADMIN_PASSWORD or SSO_BOOTSTRAP_ADMIN_PASSWORD_FILE.');
 
             return self::FAILURE;
         }
 
-        if (strlen($password) < 12) {
-            $this->components->error('The bootstrap password must be at least 12 characters.');
+        $user = User::query()->firstOrNew(['username' => $username]);
+        $created = ! $user->exists;
 
-            return self::FAILURE;
-        }
-
-        $admin = Admin::query()->firstOrNew(['email' => $email]);
-        $created = ! $admin->exists;
-
-        $admin->fill([
-            'name' => (string) config('sso.bootstrap.name', 'admin'),
-            'password' => Hash::make($password),
-            'active' => true,
+        $user->fill([
+            'name' => $user->name ?: (string) config('sso.bootstrap.name', 'admin'),
+            'password' => $password,
+            'role' => User::ROLE_SUPER_ADMIN,
+            'status' => User::STATUS_ACTIVE,
         ])->save();
 
-        $audit->log($created ? 'admin.bootstrap.created' : 'admin.bootstrap.password_reset', 'system', 'bootstrap', 'admin', $admin->id, [
-            'email' => $email,
+        $audit->log($created ? 'admin.bootstrap.created' : 'admin.bootstrap.password_reset', 'system', 'bootstrap', 'user', $user->id, [
+            'username' => $username,
         ]);
 
-        $this->components->info(($created ? 'Created' : 'Updated')." bootstrap administrator {$email}.");
+        $this->components->info(($created ? 'Created' : 'Updated')." bootstrap super administrator {$username}.");
 
         return self::SUCCESS;
     }

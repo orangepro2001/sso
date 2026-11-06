@@ -11,12 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 /**
- * Account administration. There is no self-service registration: every user row
- * originates from this controller.
+ * Account administration: create users, change their role, status and password.
  */
 class UserController extends Controller
 {
@@ -56,7 +54,8 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'username' => $this->usernameRules(),
-            'password' => ['nullable', 'string', Password::min(12)],
+            'password' => ['nullable', 'string'],
+            'role' => ['nullable', Rule::in(User::ROLES)],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -67,6 +66,7 @@ class UserController extends Controller
             'name' => $data['name'],
             'username' => $data['username'],
             'password' => $plain,
+            'role' => $data['role'] ?? User::ROLE_USER,
             'status' => User::STATUS_ACTIVE,
             'note' => $data['note'] ?? null,
             'created_by' => Auth::guard('admin')->id(),
@@ -96,13 +96,14 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:120'],
             'username' => $this->usernameRules($user->id),
             'status' => ['required', Rule::in([User::STATUS_ACTIVE, User::STATUS_DISABLED])],
+            'role' => ['nullable', Rule::in(User::ROLES)],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $user->fill($data)->save();
+        $user->fill(array_filter($data, fn ($v, $k) => $k !== 'role' || $v !== null, ARRAY_FILTER_USE_BOTH))->save();
 
         $this->audit->log('admin.user.updated', 'admin', Auth::guard('admin')->id(), 'user', $user->id, [
-            'username' => $user->username, 'status' => $user->status,
+            'username' => $user->username, 'status' => $user->status, 'role' => $user->role,
         ], $request);
 
         return redirect()->route('admin.users.index')->with('status', "User {$user->username} updated.");
@@ -111,7 +112,7 @@ class UserController extends Controller
     public function resetPassword(Request $request, User $user): RedirectResponse
     {
         $data = $request->validate([
-            'password' => ['nullable', 'string', Password::min(12)],
+            'password' => ['nullable', 'string'],
         ]);
 
         $plain = $this->passwordToStore($data['password'] ?? null);

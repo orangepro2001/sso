@@ -12,7 +12,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 /**
@@ -141,7 +140,7 @@ class ProfileController extends Controller
 
         $data = $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', Password::min(12), 'confirmed', 'different:current_password'],
+            'password' => ['required', 'string', 'confirmed', 'different:current_password'],
         ]);
 
         if (! Hash::check($data['current_password'], $user->password)) {

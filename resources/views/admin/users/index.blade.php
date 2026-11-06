@@ -19,12 +19,13 @@
             <p class="empty">No users yet.</p>
         @else
             <table>
-                <thead><tr><th>Name</th><th>Username</th><th>Status</th><th>Last login</th><th>Created</th><th></th></tr></thead>
+                <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Last login</th><th>Created</th><th></th></tr></thead>
                 <tbody>
                 @foreach ($users as $user)
                     <tr>
                         <td>{{ $user->name }}</td>
                         <td class="mono small">{{ $user->username }}</td>
+                        <td class="small">{{ $user->role }}</td>
                         <td>
                             @if ($user->isActive())
                                 <span class="badge ok">active</span>

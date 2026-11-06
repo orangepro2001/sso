@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Admin;
 use App\Models\User;
 
 return [
@@ -45,9 +44,11 @@ return [
         ],
 
         // Console operators are a separate identity space from SSO users.
+        // Not a second identity: AuthenticateAdmin puts the signed-in `web` user here
+        // (per request, never in the session) once it has checked the role.
         'admin' => [
             'driver' => 'session',
-            'provider' => 'admins',
+            'provider' => 'users',
         ],
     ],
 
@@ -72,11 +73,6 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
-        ],
-
-        'admins' => [
-            'driver' => 'eloquent',
-            'model' => Admin::class,
         ],
 
         // 'users' => [

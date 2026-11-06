@@ -38,7 +38,7 @@
         <env name="DB_USERNAME" value="sso"/>
         <env name="DB_PASSWORD" value="sso"/>
         <env name="SSO_GUEST_SECRET" value="test-guest-secret-0123456789"/>
-        <env name="SSO_BOOTSTRAP_ADMIN_EMAIL" value="root@example.test"/>
+        <env name="SSO_BOOTSTRAP_ADMIN_USERNAME" value="root"/>
         <env name="SSO_BOOTSTRAP_ADMIN_PASSWORD" value="bootstrap-password-1"/>
     </php>
 </phpunit>

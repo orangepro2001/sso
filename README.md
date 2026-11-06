@@ -185,7 +185,7 @@ See `.env.example`. The ones that matter:
 | `SSO_GUEST_SECRET` | HMAC key for the guest channel (empty = signatures unverifiable) |
 | `SSO_GUEST_TOKEN_TTL` | `0` = guest tokens never expire |
 | `SSO_ACCESS_TOKEN_TTL` | user access token lifetime, default `604800` (7 days) |
-| `SSO_BOOTSTRAP_ADMIN_*` | first administrator |
+| `SSO_BOOTSTRAP_ADMIN_*` | first super administrator (a user; skipped once one exists) |
 
 ## Deploy
 

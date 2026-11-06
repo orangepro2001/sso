@@ -25,16 +25,15 @@
 <header class="top">
     <span class="brand">SSO</span>
     <nav>
-        @auth('admin')
+        @if (auth('web')->user()?->isSuperAdmin())
             <a href="{{ route('admin.dashboard') }}" @class(['active' => request()->routeIs('admin.dashboard')])>Dashboard</a>
             <a href="{{ route('admin.users.index') }}" @class(['active' => request()->routeIs('admin.users.*')])>Users</a>
-            <a href="{{ route('admin.invites.index') }}" @class(['active' => request()->routeIs('admin.invites.*')])>Invites</a>
             <a href="{{ route('admin.clients.index') }}" @class(['active' => request()->routeIs('admin.clients.*')])>Clients</a>
             <a href="{{ route('admin.devices.index') }}" @class(['active' => request()->routeIs('admin.devices.*')])>Guest devices</a>
             <a href="{{ route('admin.tokens.index') }}" @class(['active' => request()->routeIs('admin.tokens.*')])>Tokens</a>
             <a href="{{ route('admin.blacklist.index') }}" @class(['active' => request()->routeIs('admin.blacklist.*')])>Blacklist</a>
             <a href="{{ route('admin.audit.index') }}" @class(['active' => request()->routeIs('admin.audit.*')])>Audit</a>
-        @endauth
+        @endif
         @auth('web')
             <a href="{{ route('account') }}" @class(['active' => request()->routeIs('account')])>Account</a>
         @endauth
@@ -45,15 +44,6 @@
     <button class="theme-toggle" type="button" data-theme-toggle
             title="Theme: auto / light / dark" aria-label="Toggle theme">◐</button>
 
-    @auth('admin')
-        <a class="muted small" href="{{ route('admin.account') }}" style="text-decoration:none">
-            {{ auth('admin')->user()->email }}
-        </a>
-        <form method="post" action="{{ route('admin.logout') }}">
-            @csrf
-            <button class="link" type="submit">Sign out</button>
-        </form>
-    @endauth
     @auth('web')
         <a class="row" href="{{ route('account') }}" style="text-decoration:none;gap:8px;color:var(--ink-2)">
             @if (auth('web')->user()->hasAvatar())

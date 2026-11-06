@@ -94,7 +94,7 @@ return [
     | admins table is still empty.
     */
     'bootstrap' => [
-        'email' => (string) env('SSO_BOOTSTRAP_ADMIN_EMAIL', ''),
+        'username' => (string) env('SSO_BOOTSTRAP_ADMIN_USERNAME', ''),
         'name' => (string) env('SSO_BOOTSTRAP_ADMIN_NAME', 'admin'),
         'password' => (string) env('SSO_BOOTSTRAP_ADMIN_PASSWORD', ''),
         'password_file' => (string) env('SSO_BOOTSTRAP_ADMIN_PASSWORD_FILE', ''),

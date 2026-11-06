@@ -24,10 +24,16 @@
         <input id="password" type="password" name="password" value="{{ old('password') }}"
                autocomplete="new-password" placeholder="(blank: a 20-character password is generated)">
         <p class="small muted" style="margin:6px 0 0">
-            Minimum 12 characters if you type one. Whatever is used is shown once on
+            Whatever is used is shown once on
             the next page — the form never pre-fills a password, so what you read here
             is never out of date.
         </p>
+
+        <label for="role">Role</label>
+        <select id="role" name="role">
+            <option value="user" @selected(old('role', 'user') === 'user')>user — signs in to applications</option>
+            <option value="super_admin" @selected(old('role', 'user') === 'super_admin')>super_admin — also runs this console</option>
+        </select>
 
         <label for="note">Note (optional)</label>
         <textarea id="note" name="note">{{ old('note') }}</textarea>

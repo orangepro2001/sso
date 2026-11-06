@@ -13,7 +13,6 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -30,8 +29,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Password::defaults(fn () => Password::min(12));
-
         // A machine-run guest call is cheap, but a runaway loop should still be
         // capped. Keyed by device id so one busy device cannot exhaust the budget
         // of every other device behind the same NAT address.

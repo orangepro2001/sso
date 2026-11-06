@@ -81,11 +81,11 @@
                 <input id="current_password" type="password" name="current_password" required autocomplete="current-password">
 
                 <label for="password">New password</label>
-                <input id="password" type="password" name="password" required minlength="12" autocomplete="new-password">
-                <p class="tiny muted">At least 12 characters. Every other device is signed out once it changes.</p>
+                <input id="password" type="password" name="password" required autocomplete="new-password">
+                <p class="tiny muted">Every other device is signed out once it changes.</p>
 
                 <label for="password_confirmation">New password again</label>
-                <input id="password_confirmation" type="password" name="password_confirmation" required minlength="12" autocomplete="new-password">
+                <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
 
                 <div class="row" style="margin-top:16px">
                     <button class="btn primary" type="submit">Change password</button>

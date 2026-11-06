@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Middleware\AuthenticateAdmin;
-use App\Http\Middleware\ConsoleSession;
 use App\Http\Middleware\ForceHttpsRootUrl;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
@@ -44,11 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // and those values have to be built from the public root. Appending it after
         // the group (as is tempting) stores /admin/login instead of /sso/admin/login
         // and every validation-failure redirect lands on a 404.
-        // Order matters: ConsoleSession switches the session cookie name for
-        // /admin paths and must run before EncryptCookies/StartSession, which read
-        // it once per request. ForceHttpsRootUrl then fixes URL generation.
         $middleware->prependToGroup('web', ForceHttpsRootUrl::class);
-        $middleware->prependToGroup('web', ConsoleSession::class);
 
         $middleware->web(append: [
             SecurityHeaders::class,

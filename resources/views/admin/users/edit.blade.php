@@ -28,6 +28,12 @@
             <option value="disabled" @selected(old('status', $user->status) === 'disabled')>disabled — every token stops working</option>
         </select>
 
+        <label for="role">Role</label>
+        <select id="role" name="role">
+            <option value="user" @selected(old('role', $user->role) === 'user')>user — signs in to applications</option>
+            <option value="super_admin" @selected(old('role', $user->role) === 'super_admin')>super_admin — also runs this console</option>
+        </select>
+
         <label for="note">Note</label>
         <textarea id="note" name="note">{{ old('note', $user->note) }}</textarea>
 
@@ -75,7 +81,7 @@
             <tr><th>ID</th><td class="mono">{{ $user->id }}</td></tr>
             <tr><th>Last login</th><td>{{ $user->last_login_at?->toDayDateTimeString() ?? 'never' }}</td></tr>
             <tr><th>Last login IP</th><td class="mono">{{ $user->last_login_ip ?? '—' }}</td></tr>
-            <tr><th>Created by admin</th><td class="mono">{{ $user->created_by ?? '—' }}</td></tr>
+            <tr><th>Created by</th><td>{{ $user->creator?->username ?? '—' }}</td></tr>
             </tbody>
         </table>
     </div>

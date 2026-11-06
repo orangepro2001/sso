@@ -23,6 +23,11 @@ class UserFactory extends Factory
         ];
     }
 
+    public function superAdmin(): static
+    {
+        return $this->state(fn () => ['role' => User::ROLE_SUPER_ADMIN]);
+    }
+
     public function disabled(): static
     {
         return $this->state(fn () => ['status' => User::STATUS_DISABLED]);

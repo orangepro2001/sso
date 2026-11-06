@@ -9,7 +9,6 @@ use App\Services\PasswordResetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 /**
@@ -62,7 +61,7 @@ class PasswordResetController extends Controller
         }
 
         $data = $request->validate([
-            'password' => ['required', 'string', 'confirmed', Password::min(12)],
+            'password' => ['required', 'string', 'confirmed'],
         ]);
 
         $user->forceFill(['password' => Hash::make($data['password'])])->save();

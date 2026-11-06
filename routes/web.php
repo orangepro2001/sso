@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\BlacklistController;
 use App\Http\Controllers\Admin\ClientController;
@@ -34,14 +33,13 @@ Route::post('login', [UserLoginController::class, 'store'])
     ->name('login.store');
 Route::post('logout', [UserLoginController::class, 'destroy'])->middleware('auth:web')->name('logout');
 
-// Closed registration, with one door: an administrator-issued code. The code in the
-// URL *is* the credential, so these are anonymous — and rate limited for the same
-// reason the reset links are.
-Route::get('register/{code}', [RegistrationController::class, 'show'])
+// Open self-registration. Old invite links (register/{code}) still land on the form;
+// the code is ignored. Rate limited so a script cannot mint accounts in bulk.
+Route::get('register/{code?}', [RegistrationController::class, 'show'])
     ->middleware('guest:web')
     ->middleware('throttle:30,1')
     ->name('register');
-Route::post('register/{code}', [RegistrationController::class, 'store'])
+Route::post('register/{code?}', [RegistrationController::class, 'store'])
     ->middleware('guest:web')
     ->middleware('throttle:10,1')
     ->name('register.store');
@@ -76,13 +74,10 @@ Route::post('password/reset/{token}', [PasswordResetController::class, 'update']
 |--------------------------------------------------------------------------
 | Administration
 |--------------------------------------------------------------------------
-| Closed shop: there is no registration route anywhere in this application.
+| Users with role super_admin only (AuthenticateAdmin).
 */
 Route::prefix('admin')->name('admin.')->group(function () {
-    Route::middleware('guest:admin')->group(function () {
-        Route::get('login', [AuthController::class, 'show'])->name('login');
-        Route::post('login', [AuthController::class, 'store'])->name('login.store');
-    });
+    Route::get('login', [AuthController::class, 'show'])->name('login');
 
     Route::middleware('admin')->group(function () {
         Route::post('logout', [AuthController::class, 'destroy'])->name('logout');
@@ -122,9 +117,5 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('audit', [DashboardController::class, 'audit'])->name('audit.index');
 
-        // Self-service for the signed-in administrator.
-        Route::get('account', [AccountController::class, 'edit'])->name('account');
-        Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password');
-        Route::put('account/name', [AccountController::class, 'updateName'])->name('account.name');
     });
 });

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\AccessToken;
-use App\Models\Admin;
 use App\Models\RefreshToken;
 use App\Models\User;
 use App\Models\UserPasswordReset;
@@ -21,10 +20,10 @@ class PasswordResetLinkTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function signInAdmin(): Admin
+    private function signInAdmin(): User
     {
-        $admin = Admin::factory()->create(['email' => 'boss@example.test', 'password' => 'boss-password-1']);
-        $this->post('/admin/login', ['email' => 'boss@example.test', 'password' => 'boss-password-1']);
+        $admin = User::factory()->superAdmin()->create(['username' => 'boss']);
+        $this->actingAs($admin, 'web');
 
         return $admin;
     }
@@ -134,14 +133,14 @@ class PasswordResetLinkTest extends TestCase
         $this->get("/password/reset/{$new}")->assertOk()->assertSee('Set a new password');
     }
 
-    public function test_a_short_password_is_rejected_and_the_link_stays_usable(): void
+    public function test_a_mismatched_confirmation_is_rejected_and_the_link_stays_usable(): void
     {
         $user = User::factory()->create(['username' => 'shorty']);
         $token = $this->issueToken($user);
 
         $this->post("/password/reset/{$token}", [
-            'password' => 'too-short',
-            'password_confirmation' => 'too-short',
+            'password' => 'one',
+            'password_confirmation' => 'two',
         ])->assertSessionHasErrors('password');
 
         $this->get("/password/reset/{$token}")->assertOk()->assertSee('Set a new password');

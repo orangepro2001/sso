@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Admin;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,19 +44,18 @@ class SubpathRoutingTest extends TestCase
             ->assertSee('action="https://sso.test/sso/login"', false);
     }
 
-    public function test_the_admin_login_form_posts_to_the_prefixed_path(): void
+    public function test_the_old_console_sign_in_link_goes_to_the_prefixed_user_sign_in(): void
     {
         $this->withPublicHost()->get('/admin/login')
-            ->assertOk()
-            ->assertSee('action="https://sso.test/sso/admin/login"', false);
+            ->assertRedirect('https://sso.test/sso/login');
     }
 
     public function test_authenticated_console_pages_are_not_cacheable(): void
     {
         // A console page restored from the back/forward cache can carry links from
         // an older build; no-store keeps the browser honest.
-        $admin = Admin::factory()->create();
-        $this->actingAs($admin, 'admin');
+        $admin = User::factory()->superAdmin()->create();
+        $this->actingAs($admin, 'web');
 
         $response = $this->withPublicHost()->get('/admin');
 
@@ -77,6 +76,6 @@ class SubpathRoutingTest extends TestCase
         $this->withPublicHost()->get('/')
             ->assertOk()
             ->assertSee('https://sso.test/sso/login', false)
-            ->assertSee('https://sso.test/sso/admin/login', false);
+            ->assertSee('https://sso.test/sso/register', false);
     }
 }

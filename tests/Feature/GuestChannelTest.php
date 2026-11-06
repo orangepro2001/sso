@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\Admin;
 use App\Models\GuestDevice;
 use App\Models\OauthClient;
+use App\Models\User;
 use App\Services\GuestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -86,9 +86,9 @@ class GuestChannelTest extends TestCase
         $first->assertOk();
 
         $device = GuestDevice::query()->where('device_id', $deviceId)->firstOrFail();
-        $adminToken = Admin::factory()->create();
+        $admin = User::factory()->superAdmin()->create();
 
-        $this->actingAs($adminToken, 'admin')
+        $this->actingAs($admin, 'web')
             ->post("/admin/devices/{$device->id}/block", ['reason' => 'test'])
             ->assertRedirect();
 
