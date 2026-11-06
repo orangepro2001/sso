@@ -57,7 +57,7 @@ class SubpathRoutingTest extends TestCase
         $admin = User::factory()->superAdmin()->create();
         $this->actingAs($admin, 'web');
 
-        $response = $this->withPublicHost()->get('/admin');
+        $response = $this->withPublicHost()->get('/admin/users');
 
         $response->assertOk();
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));

@@ -30,15 +30,6 @@ class UserInfoController extends Controller
 
         $scopes = $record->scopes ?? [];
 
-        if ($record->subject_type === AccessToken::SUBJECT_GUEST) {
-            return response()->json([
-                'sub' => 'guest:'.$record->guestDevice?->device_id,
-                'subject_type' => 'guest',
-                'device_id' => $record->guestDevice?->device_id,
-                'scope' => implode(' ', $scopes),
-            ]);
-        }
-
         if ($record->subject_type === AccessToken::SUBJECT_CLIENT) {
             return response()->json([
                 'sub' => 'client:'.$record->client_id,

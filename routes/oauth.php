@@ -3,7 +3,6 @@
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\OAuth\AuthorizeController;
 use App\Http\Controllers\OAuth\DiscoveryController;
-use App\Http\Controllers\OAuth\GuestController;
 use App\Http\Controllers\OAuth\IntrospectController;
 use App\Http\Controllers\OAuth\TokenController;
 use App\Http\Controllers\OAuth\UserInfoController;
@@ -26,15 +25,6 @@ Route::post('oauth/introspect', [IntrospectController::class, 'introspect'])->na
 Route::post('oauth/revoke', [IntrospectController::class, 'revoke'])->name('oauth.revoke');
 Route::get('oauth/userinfo', UserInfoController::class)->name('oauth.userinfo');
 Route::post('oauth/userinfo', UserInfoController::class)->name('oauth.userinfo.post');
-
-// The silent guest channel. Rate limited generously: it is meant to be called by
-// machines, but a runaway loop should not be able to fill the database.
-// Keyed by device id, not by IP: the whole point of the channel is silent
-// service, and an office behind one NAT address must not starve itself. The IP is
-// the fallback for the (allowed) case where no device_id was sent.
-Route::post('oauth/guest', GuestController::class)
-    ->middleware('throttle:oauth-guest')
-    ->name('oauth.guest');
 
 // Plain controller (no closure) so that `route:cache` works in the image.
 Route::get('healthz', HealthController::class)->name('healthz');

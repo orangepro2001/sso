@@ -17,7 +17,7 @@ class DiscoveryTest extends TestCase
             ->assertOk()
             ->assertJsonPath('issuer', 'https://sso.test/sso')
             ->assertJsonPath('token_endpoint', 'https://sso.test/sso/oauth/token')
-            ->assertJsonPath('guest_endpoint', 'https://sso.test/sso/oauth/guest')
+            ->assertJsonMissingPath('guest_endpoint')
             ->assertJsonPath('jwks_uri', 'https://sso.test/sso/.well-known/jwks.json')
             ->assertJsonPath('code_challenge_methods_supported', ['S256']);
     }

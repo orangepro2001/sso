@@ -1,7 +1,7 @@
 # Daily housekeeping for the SSO service.
 #
-# Guest tokens never expire, so without this the access_tokens table grows one row
-# per guest call, forever. sso:prune removes only dead rows.
+# Expired and revoked tokens are kept until this runs; sso:prune removes only
+# rows that can no longer authenticate anything, and old audit entries.
 #
 # Install (as the same user that runs sso.service):
 #   install -m 0644 deploy/quadlet/sso-prune.service ~/.config/systemd/user/
@@ -9,7 +9,7 @@
 #   systemctl --user daemon-reload && systemctl --user enable --now sso-prune.timer
 
 [Unit]
-Description=SSO housekeeping (expired tokens, stale guest devices, old audit rows)
+Description=SSO housekeeping (expired tokens, spent codes, old audit rows)
 Documentation=https://github.com/orangepro2001/sso
 
 [Service]

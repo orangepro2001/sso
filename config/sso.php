@@ -35,8 +35,7 @@ return [
     | Token lifetimes (seconds)
     |--------------------------------------------------------------------------
     | Users get a 7 day access token plus a rotating refresh token, so clients
-    | can refresh silently and never bother the user. Guests get a token that
-    | does not expire at all (0 = no expiry) unless SSO_GUEST_TOKEN_TTL is set.
+    | can refresh silently and never bother the user.
     */
     'access_token_ttl' => (int) env('SSO_ACCESS_TOKEN_TTL', 604800),
     'refresh_token_ttl' => (int) env('SSO_REFRESH_TOKEN_TTL', 2592000),
@@ -51,25 +50,6 @@ return [
     | a bearer token for someone's account.
     */
     'reset_link_ttl' => (int) env('SSO_RESET_LINK_TTL', 86400),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Guest (silent) channel
-    |--------------------------------------------------------------------------
-    | A client proves itself with a stable environment value (hostname, machine
-    | id, serial) plus a shared secret. Every request with a valid signature is
-    | approved automatically and a usable token is returned immediately; the
-    | administrator reviews devices afterwards and may blacklist them.
-    */
-    'guest' => [
-        'enabled' => (bool) env('SSO_GUEST_ENABLED', true),
-        'secret' => (string) env('SSO_GUEST_SECRET', ''),
-        'algo' => 'hmac-sha256',
-        'prefix' => 'sso-guest-v1',
-        'scope' => (string) env('SSO_GUEST_SCOPE', 'db:read'),
-        'token_ttl' => (int) env('SSO_GUEST_TOKEN_TTL', 0),
-        'require_signature' => (bool) env('SSO_GUEST_REQUIRE_SIGNATURE', true),
-    ],
 
     /*
     |--------------------------------------------------------------------------

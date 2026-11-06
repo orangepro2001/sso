@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\AccessToken;
-use App\Models\GuestDevice;
 use App\Models\OauthClient;
 use App\Models\RefreshToken;
 use App\Models\User;
@@ -16,15 +15,14 @@ use Illuminate\Support\Str;
  * The single place that mints, rotates, revokes and resolves tokens.
  *
  * Users get a short-ish RS256 JWT (7 days) plus a rotating refresh token so
- * clients can refresh silently. Guests get an opaque, non-expiring token stored
- * by hash, which the blacklist can kill instantly.
+ * clients can refresh silently. Disabling the user, or revoking the row, ends a
+ * token immediately: resolve() checks both on every use.
  */
 class TokenService
 {
     public function __construct(
         private readonly Jwt $jwt,
         private readonly SigningKeyService $keys,
-        private readonly BlacklistService $blacklist,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -109,43 +107,6 @@ class TokenService
     }
 
     /**
-     * Guest token: opaque, hashed at rest, no expiry by default.
-     *
-     * @param  string[]  $scopes
-     */
-    public function issueForGuest(GuestDevice $device, array $scopes, ?Request $request = null): array
-    {
-        $request ??= request();
-        $ttl = (int) config('sso.guest.token_ttl', 0);
-        $plain = 'sso_g_'.Str::random(48);
-        $expiresAt = $ttl > 0 ? now()->addSeconds($ttl) : null;
-
-        $record = AccessToken::create([
-            'kind' => AccessToken::KIND_OPAQUE,
-            'jti' => (string) Str::uuid(),
-            'token_hash' => hash('sha256', $plain),
-            'subject_type' => AccessToken::SUBJECT_GUEST,
-            'guest_device_id' => $device->id,
-            'client_id' => null,
-            'scopes' => $scopes,
-            'expires_at' => $expiresAt,
-            'issued_ip' => $this->audit->ip($request),
-            'user_agent' => $this->audit->agent($request),
-        ]);
-
-        $this->audit->log('token.issued', 'guest', $device->device_id, 'token', $record->jti, [
-            'scopes' => $scopes, 'kind' => 'guest', 'expires_at' => $expiresAt?->toIso8601String(),
-        ], $request);
-
-        return [
-            'access_token' => $plain,
-            'token_type' => 'Bearer',
-            'expires_in' => $expiresAt === null ? null : $ttl,
-            'scope' => implode(' ', $scopes),
-        ];
-    }
-
-    /**
      * Rotate a refresh token. Reuse of an already rotated token revokes the whole
      * family: that is the classic stolen-token signal.
      *
@@ -195,7 +156,7 @@ class TokenService
 
     /**
      * Resolve a bearer token to its stored record, or null when it is unknown,
-     * expired, revoked or blacklisted.
+     * expired, revoked, or belongs to a user who is no longer active.
      */
     public function resolve(string $plain): ?AccessToken
     {
@@ -204,26 +165,11 @@ class TokenService
             return null;
         }
 
-        if ($this->blacklist->isTokenBlocked($record->jti)) {
-            return null;
-        }
-
-        if ($record->subject_type === AccessToken::SUBJECT_GUEST) {
-            $device = $record->guestDevice;
-            if ($device === null || ! $device->isActive() || $this->blacklist->isDeviceBlocked($device->device_id)) {
-                return null;
-            }
-        }
-
         if ($record->subject_type === AccessToken::SUBJECT_USER) {
             $user = $record->user;
-            if ($user === null || ! $user->isActive() || $this->blacklist->isUserBlocked($user->id)) {
+            if ($user === null || ! $user->isActive()) {
                 return null;
             }
-        }
-
-        if ($record->client_id !== null && $this->blacklist->isClientBlocked($record->client_id)) {
-            return null;
         }
 
         return $record;
@@ -274,20 +220,12 @@ class TokenService
     {
         return match ($record->subject_type) {
             AccessToken::SUBJECT_USER => (string) $record->user_id,
-            AccessToken::SUBJECT_GUEST => $record->guestDevice?->device_id,
             default => $record->client_id,
         };
     }
 
     private function lookup(string $plain): ?AccessToken
     {
-        // Guest tokens are opaque; user/client tokens are JWTs. Try the cheap
-        // hash lookup first, then fall back to reading the jti from the JWT.
-        $byHash = AccessToken::query()->where('token_hash', hash('sha256', $plain))->first();
-        if ($byHash !== null) {
-            return $byHash;
-        }
-
         $claims = $this->decodeUnverified($plain);
         if ($claims === null || ! isset($claims['jti'])) {
             return null;

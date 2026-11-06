@@ -12,8 +12,7 @@ use Illuminate\Http\Request;
  * It used to be a status board: signing-key count, guest-channel state, and the
  * whole endpoint table — internal operational detail, rendered to anyone on the
  * internet, and useful to nobody standing there. What a visitor needs is one thing:
- * the way in. The endpoint list now lives in the console, where the person who needs
- * it is already signed in (admin/dashboard.blade.php).
+ * the way in. Clients read the endpoints from the discovery document.
  */
 class HomeController extends Controller
 {

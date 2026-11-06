@@ -23,7 +23,6 @@ class AdminConsoleTest extends TestCase
     {
         $this->get('/admin')->assertRedirect(route('login'));
         $this->get('/admin/users')->assertRedirect(route('login'));
-        $this->get('/admin/devices')->assertRedirect(route('login'));
     }
 
     public function test_an_ordinary_user_is_refused_the_console(): void
@@ -43,7 +42,8 @@ class AdminConsoleTest extends TestCase
         $this->post('/login', ['username' => 'boss', 'password' => 'x'])
             ->assertRedirect(route('admin.dashboard'));
 
-        $this->get('/admin')->assertOk()->assertSee('Users');
+        $this->get('/admin')->assertRedirect(route('admin.users.index'));
+        $this->get('/admin/users')->assertOk();
         $this->get('/')->assertSee(route('admin.dashboard'));
     }
 

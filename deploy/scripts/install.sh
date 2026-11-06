@@ -61,14 +61,14 @@ main() {
         cp "$SRC/.env.example" "$CONFIG_DIR/env"
 
         # Fill in the values that can be generated locally; everything the operator
-        # must supply (database password, guest secret) is left blank on purpose.
+        # must supply (database password) is left blank on purpose.
         app_key="base64:$(head -c 32 /dev/urandom | base64)"
         sed -i "s|^APP_KEY=.*|APP_KEY=$app_key|" "$CONFIG_DIR/env"
         sed -i "s|^SSO_BOOTSTRAP_ADMIN_PASSWORD_FILE=.*|SSO_BOOTSTRAP_ADMIN_PASSWORD_FILE=/run/secrets/sso_bootstrap_admin_password|" "$CONFIG_DIR/env"
         chmod 600 "$CONFIG_DIR/env"
 
         log "generated an APP_KEY"
-        log "edit $CONFIG_DIR/env now: DB_PASSWORD, SSO_GUEST_SECRET, SSO_ISSUER, SSO_BOOTSTRAP_ADMIN_EMAIL"
+        log "edit $CONFIG_DIR/env now: DB_PASSWORD, SSO_ISSUER, SSO_BOOTSTRAP_ADMIN_EMAIL"
     fi
 
     log "installing the bootstrap password secret"

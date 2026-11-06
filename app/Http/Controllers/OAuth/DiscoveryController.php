@@ -25,7 +25,6 @@ class DiscoveryController extends Controller
             'userinfo_endpoint' => $issuer.'/oauth/userinfo',
             'introspection_endpoint' => $issuer.'/oauth/introspect',
             'revocation_endpoint' => $issuer.'/oauth/revoke',
-            'guest_endpoint' => $issuer.'/oauth/guest',
             'jwks_uri' => $issuer.'/.well-known/jwks.json',
             'scopes_supported' => array_keys((array) config('sso.scopes', [])),
             'response_types_supported' => ['code'],

@@ -9,7 +9,7 @@ use Throwable;
 
 /**
  * Append-only audit trail. Everything security relevant goes through here:
- * logins, account creation, guest enrolment, blacklisting and token lifecycle.
+ * logins, account changes and the token lifecycle.
  */
 class AuditLogger
 {

@@ -26,12 +26,8 @@
     <span class="brand">SSO</span>
     <nav>
         @if (auth('web')->user()?->isSuperAdmin())
-            <a href="{{ route('admin.dashboard') }}" @class(['active' => request()->routeIs('admin.dashboard')])>Dashboard</a>
             <a href="{{ route('admin.users.index') }}" @class(['active' => request()->routeIs('admin.users.*')])>Users</a>
             <a href="{{ route('admin.clients.index') }}" @class(['active' => request()->routeIs('admin.clients.*')])>Clients</a>
-            <a href="{{ route('admin.devices.index') }}" @class(['active' => request()->routeIs('admin.devices.*')])>Guest devices</a>
-            <a href="{{ route('admin.tokens.index') }}" @class(['active' => request()->routeIs('admin.tokens.*')])>Tokens</a>
-            <a href="{{ route('admin.blacklist.index') }}" @class(['active' => request()->routeIs('admin.blacklist.*')])>Blacklist</a>
             <a href="{{ route('admin.audit.index') }}" @class(['active' => request()->routeIs('admin.audit.*')])>Audit</a>
         @endif
         @auth('web')

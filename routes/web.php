@@ -1,12 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\AuthController;
-use App\Http\Controllers\Admin\BlacklistController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\DeviceController;
-use App\Http\Controllers\Admin\InviteController;
-use App\Http\Controllers\Admin\TokenController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\ProfileController;
@@ -97,23 +93,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('clients', [ClientController::class, 'store'])->name('clients.store');
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
         Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
-
-        Route::get('invites', [InviteController::class, 'index'])->name('invites.index');
-        Route::post('invites', [InviteController::class, 'store'])->name('invites.store');
-        Route::delete('invites/{invite}', [InviteController::class, 'destroy'])->name('invites.destroy');
-
-        Route::get('devices', [DeviceController::class, 'index'])->name('devices.index');
-        Route::get('devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
-        Route::post('devices/{device}/block', [DeviceController::class, 'block'])->name('devices.block');
-        Route::post('devices/{device}/unblock', [DeviceController::class, 'unblock'])->name('devices.unblock');
-        Route::post('devices/{device}/review', [DeviceController::class, 'review'])->name('devices.review');
-
-        Route::get('blacklist', [BlacklistController::class, 'index'])->name('blacklist.index');
-        Route::post('blacklist', [BlacklistController::class, 'store'])->name('blacklist.store');
-        Route::delete('blacklist/{entry}', [BlacklistController::class, 'destroy'])->name('blacklist.destroy');
-
-        Route::get('tokens', [TokenController::class, 'index'])->name('tokens.index');
-        Route::post('tokens/{token}/revoke', [TokenController::class, 'revoke'])->name('tokens.revoke');
 
         Route::get('audit', [DashboardController::class, 'audit'])->name('audit.index');
 

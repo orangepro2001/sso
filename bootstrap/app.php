@@ -35,7 +35,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'oauth/token',
             'oauth/introspect',
             'oauth/revoke',
-            'oauth/guest',
         ]);
 
         // ForceHttpsRootUrl must run *before* StartSession: the session stores the

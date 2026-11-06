@@ -13,12 +13,10 @@ class AccessToken extends Model
 
     public const SUBJECT_USER = 'user';
 
-    public const SUBJECT_GUEST = 'guest';
-
     public const SUBJECT_CLIENT = 'client';
 
     protected $fillable = [
-        'kind', 'jti', 'token_hash', 'subject_type', 'user_id', 'guest_device_id',
+        'kind', 'jti', 'token_hash', 'subject_type', 'user_id',
         'client_id', 'scopes', 'expires_at', 'revoked_at', 'issued_ip', 'user_agent',
     ];
 
@@ -31,11 +29,6 @@ class AccessToken extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function guestDevice(): BelongsTo
-    {
-        return $this->belongsTo(GuestDevice::class);
     }
 
     public function isActive(): bool
