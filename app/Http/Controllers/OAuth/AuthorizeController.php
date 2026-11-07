@@ -86,6 +86,13 @@ class AuthorizeController extends Controller
         // The request has been served: drop the parked copy, otherwise the next
         // plain sign-in would resume a stale client request instead of going home.
         $request->session()->forget('oauth.pending');
+        // …but remember it for two minutes: a sign-in form submitted twice lands its
+        // second POST (419) while the browser is still on its way to the client, and
+        // that request is what carries on (bootstrap/app.php).
+        $request->session()->put('oauth.last', ['at' => time(), 'params' => $request->only([
+            'response_type', 'client_id', 'redirect_uri', 'scope', 'state',
+            'code_challenge', 'code_challenge_method', 'nonce',
+        ])]);
 
         $plain = 'sso_c_'.Str::random(48);
         OauthAuthCode::create([

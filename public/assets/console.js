@@ -230,3 +230,22 @@
         });
     });
 })();
+
+// Forms marked data-once send once: a second click while the first submit is on its
+// way would carry a CSRF token the first one already replaced (419).
+(function () {
+    document.querySelectorAll('form[data-once]').forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (form.dataset.sent) { event.preventDefault(); return; }
+            form.dataset.sent = '1';
+            form.querySelectorAll('button[type=submit]').forEach(function (b) { b.disabled = true; });
+        });
+    });
+    // Coming back with the browser's Back button: the form may be used again.
+    window.addEventListener('pageshow', function () {
+        document.querySelectorAll('form[data-once]').forEach(function (form) {
+            delete form.dataset.sent;
+            form.querySelectorAll('button[type=submit]').forEach(function (b) { b.disabled = false; });
+        });
+    });
+})();

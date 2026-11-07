@@ -9,7 +9,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -70,5 +72,26 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return back()->withErrors([$e->field => $e->getMessage()])->withInput();
+        });
+
+        // The sign-in form sent twice: the first submit signed in and regenerated the
+        // session, so the second carries a stale CSRF token. The work-report desktop
+        // client showed "419 PAGE EXPIRED" in place of the application (2026-11-07).
+        // Signed in: carry on where the sign-in was going (the parked or just-served
+        // authorize request). Not signed in: the form again, with a word on why.
+        $exceptions->render(function (HttpException $e, Request $request) {
+            if ($e->getStatusCode() !== 419 || ! $request->isMethod('post') || ! $request->routeIs('login.store')) {
+                return null;
+            }
+            if (Auth::guard('web')->check()) {
+                $last = $request->session()->get('oauth.last');
+                $resume = $request->session()->get('oauth.pending')
+                    ?? (is_array($last) && ($last['at'] ?? 0) > time() - 120 ? $last['params'] : null);
+
+                return $resume ? redirect()->route('oauth.authorize', $resume) : redirect()->route('home');
+            }
+
+            return redirect()->route('login', array_filter(['next' => $request->query('next')]))
+                ->withErrors(['username' => '로그인 화면이 오래되었습니다. 다시 로그인하세요.']);
         });
     })->create();

@@ -102,4 +102,43 @@ class PendingAuthorizeResumeTest extends TestCase
             'code_verifier' => $verifier,
         ])->assertOk();
     }
+
+    /**
+     * The form sent twice: the first submit signs in and the browser is on its way to
+     * the client when the second arrives with the replaced CSRF token. That second
+     * request must carry on to the client, not show "419 PAGE EXPIRED".
+     */
+    public function test_a_login_form_sent_twice_carries_on_to_the_client(): void
+    {
+        $client = OauthClient::factory()->create();
+        User::factory()->create(['username' => 'twiceuser', 'password' => 'twice-password-1']);
+        [, $challenge] = $this->pkce();
+        $authorize = '/oauth/authorize?'.http_build_query([
+            'response_type' => 'code', 'client_id' => $client->client_id,
+            'redirect_uri' => 'https://client.example/callback', 'scope' => 'openid',
+            'state' => 'carry-me', 'code_challenge' => $challenge, 'code_challenge_method' => 'S256',
+        ]);
+
+        $this->get($authorize)->assertRedirect();
+        $login = $this->post('/login', ['username' => 'twiceuser', 'password' => 'twice-password-1']);
+        $this->get($this->appPath((string) $login->headers->get('Location')))->assertRedirect();
+
+        // CSRF is only checked outside unit tests.
+        $this->app['env'] = 'production';
+        $again = $this->post('/login', ['_token' => 'stale', 'username' => 'twiceuser', 'password' => 'twice-password-1']);
+        $again->assertRedirect();
+        $this->assertStringContainsString('/oauth/authorize', (string) $again->headers->get('Location'));
+        $this->assertStringContainsString('carry-me', (string) $again->headers->get('Location'));
+
+        $granted = $this->get($this->appPath((string) $again->headers->get('Location')));
+        $this->assertStringStartsWith('https://client.example/callback?', (string) $granted->headers->get('Location'));
+    }
+
+    public function test_a_stale_login_form_without_a_session_asks_again(): void
+    {
+        $this->app['env'] = 'production';
+        $this->post('/login', ['_token' => 'stale', 'username' => 'nobody', 'password' => 'x'])
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('username');
+    }
 }

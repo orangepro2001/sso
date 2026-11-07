@@ -15,7 +15,7 @@
         <p class="lead">하나의 계정으로 모든 사내 도구에 로그인합니다.</p>
     @endif
 
-    <form class="card" method="post" action="{{ route('login.store') }}@if (! empty($next))?next={{ urlencode($next) }}@endif">
+    <form class="card" method="post" data-once action="{{ route('login.store') }}@if (! empty($next))?next={{ urlencode($next) }}@endif">
         @csrf
         <label for="username">아이디</label>
         <input id="username" type="text" name="username" value="{{ old('username') }}" required autofocus
