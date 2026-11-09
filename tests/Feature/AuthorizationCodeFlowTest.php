@@ -76,6 +76,11 @@ class AuthorizationCodeFlowTest extends TestCase
         $this->assertNotEmpty($token->json('refresh_token'));
         $this->assertNotEmpty($token->json('id_token'));
 
+        // The ID token carries an expiry (OIDC Core 2): oauth2-proxy refused one without it as 'token is expired'.
+        $claims = json_decode(base64_decode(strtr(explode('.', $token->json('id_token'))[1], '-_', '+/')), true);
+        $this->assertGreaterThan(time(), $claims['exp']);
+        $this->assertEqualsWithDelta(604800, $claims['exp'] - $claims['iat'], 2);
+
         // The authorization code is single use.
         $this->postJson('/oauth/token', [
             'grant_type' => 'authorization_code',

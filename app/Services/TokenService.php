@@ -56,7 +56,9 @@ class TokenService
 
         $idToken = in_array('openid', $scopes, true)
             ? $this->jwt->encode(
-                $this->baseClaims($user->id, $clientId, ['openid'], $request) + $this->identityClaims($user, $scopes),
+                $this->baseClaims($user->id, $clientId, ['openid'], $request)
+                    + ['exp' => $expiresAt->getTimestamp()] // OIDC Core 2: required; a client reads a missing one as expired
+                    + $this->identityClaims($user, $scopes),
                 $this->keys->active()->private_key,
                 $this->keys->active()->kid,
             )
