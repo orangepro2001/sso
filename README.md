@@ -1,204 +1,181 @@
-# SSO — 계정 센터 (authorization center)
+# SSO — 계정 센터, in Go
 
-Self-hosted OAuth 2.0 / OpenID Connect issuer for the internal tools, and the one
-place where people and their accounts are managed. Laravel on PostgreSQL, one
-container, no asset build.
+The authorization center (OAuth 2.0 / OpenID Connect issuer + admin console) of
+`/home/ubuntu/dev/SSO`, ported 1:1 to a single Go binary. Same routes, same
+HTML, same JSON, same token policy — with SQLite where PostgreSQL used to be, so
+the result runs with **nothing installed**.
 
-1. **One user space, two roles.** Everybody is a `user`; a `super_admin` also gets
-   the console. Anyone may register (`/register`), no password policy.
-2. **People first.** The console opens on the user list; every account action is
-   one button on that person's page, and the same actions exist as a JSON API
-   (`docs/api.md`) for applications.
-3. **Disabling is immediate.** Tokens are database rows, checked with the user's
-   status on every use; disabling also deletes the person's browser sessions.
-
----
-
-## Endpoints
-
-All paths are relative to the issuer (`SSO_ISSUER`, e.g. `https://sso.521985.xyz`).
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/.well-known/openid-configuration` | discovery (RFC 8414 / OIDC) |
-| `GET` | `/.well-known/jwks.json` | RS256 public keys |
-| `GET` | `/oauth/authorize` | authorization code, PKCE `S256` (mandatory for public clients) |
-| `POST` | `/oauth/token` | `authorization_code`, `refresh_token`, `client_credentials` |
-| `POST` | `/oauth/introspect` | RFC 7662, requires client authentication |
-| `POST` | `/oauth/revoke` | RFC 7009 |
-| `GET`/`POST` | `/oauth/userinfo` | bearer-protected identity document (`name`, `preferred_username`, `role`, `picture`) |
-| `*` | `/api/me`, `/api/users` | account API, bearer token (`docs/api.md`) |
-| `GET` | `/avatar/{id}/{v}?sig=` | profile picture, anonymous, HMAC-signed URL |
-| `GET` | `/healthz` | liveness |
-| `GET` | `/admin` | console (super administrators) |
-
-## Identities
-
-One account space. A user has a display name, a **username** (the sign-in
-identifier, lower-case), a password, an optional picture and a role (`user` or
-`super_admin`). There is no e-mail address, so no `email` scope or claim and no
-verification mail. The console is the same sign-in as every application; the
-`admin` middleware only checks the role.
-
-## Token policy
-
-| Subject | Access token | Lifetime | Refresh |
-| --- | --- | --- | --- |
-| User (code flow) | RS256 JWT, `jti` in the database | **7 days** | rotating `refresh_token` (with `offline_access`) |
-| Confidential client | RS256 JWT | 7 days | re-request (no refresh token) |
-
-Every token is a database row, so revocation is immediate and does not have to wait
-for a JWT to expire: revoking a token, or disabling its user, takes effect on the
-next `userinfo`, introspection or API call.
-
-Refresh tokens rotate on every use. Replaying an already rotated token is treated as
-theft and revokes the whole `family_id` — the client has to re-authenticate.
-
-## Housekeeping
-
-`sso:prune` deletes rows that can no longer authenticate anything (revoked or
-expired tokens, spent authorization codes) and audit rows older than 90 days.
-
-```bash
-php artisan sso:prune --dry-run        # via `podman exec sso php artisan sso:prune`
-php artisan sso:prune
+```
+sso                       # serve
+sso -bootstrap            # create the first super administrator from the env
+sso -users                # list accounts
+sso -user-password NAME   # set or generate a password
+sso -role NAME -set-role super_admin
+sso -rotate-keys          # retire the active RS256 key, generate a new one
+sso -prune [-dry-run]     # expired tokens, spent codes, old audit rows
+sso -backup /path.sqlite  # consistent copy of the data file
+sso -import-postgres DSN  # copy production's PostgreSQL data in (see below)
 ```
 
-Installed as `sso-prune.timer` (nightly, `Persistent=true`) by `install.sh`.
+## Build
 
-## Password reset without e-mail
+```sh
+cd sso
+go build ./...            # or: go build -o sso .
+go vet ./...
+go test ./...             # smoke test: temp SQLite file, full flows
+```
 
-There is no "forgot password" mail. On the person's page the administrator either
-sets a password (blank = a 12-character one is generated and shown once) or mints a
-**one-time link** to hand over out of band:
+Cross-compiling is the point of the dependency set (pure Go SQLite, standard
+library crypto):
 
-- single use, expires after `SSO_RESET_LINK_TTL` (default 24 h)
-- issuing a new link revokes any earlier unused one
-- only the SHA-256 is stored, so a database dump is not a pile of live credentials
-- the URL is built from `SSO_ISSUER`, so it is publicly openable
+```sh
+GOOS=windows GOARCH=amd64 go build -o sso.exe .
+GOOS=linux   GOARCH=amd64 go build -o sso .
+```
 
-**Any** password change revokes that user's access and refresh tokens: the old
-password stops opening things, so what it opened is closed.
-
-Lost the last administrator password? `php artisan sso:user-password <username>`.
-
-## Console (`/admin`, Korean)
-
-- **사용자** — search (`/` focuses it), filter chips (관리자 / 일반 / 비활성) with counts,
-  a dialog to create someone. Each person has one page: quick actions (관리자 지정,
-  비활성화, 모든 곳에서 로그아웃), name / username / note, password or reset link,
-  picture, the applications they are signed in to, their recent activity, and
-  deletion behind typing the username.
-- **활동 기록** — the audit trail as sentences, filtered by person and by kind; the raw
-  event and metadata stay one click away.
-- **연결된 앱** — OAuth clients; registering a client *is* the consent step.
-- **내 계정** — what every person can change themselves: name, username (with the
-  current password), password, picture, signing out everywhere.
-
-Two rules hold in the console and the API alike (`App\Services\UserAccounts`): there is
-always one active super administrator, and nobody can demote, disable or delete
-themselves.
-
-Pictures are cropped to a square and shrunk to 512 px **in the browser**
-(`public/assets/console.js`) — the image has no GD — so a phone photo arrives as
-~50 KB WebP. The server accepts JPEG/PNG/WebP/GIF up to 1 MB.
-
-Times are stored in UTC and printed in `SSO_DISPLAY_TIMEZONE` (default Asia/Seoul).
-
-The first administrator comes from the environment (`sso:bootstrap`, run on every boot,
-no-op once one exists); `sso:role <username> super_admin` promotes from the shell.
+Two things ship next to the binary if you want them: `web/` is embedded in the
+executable (templates and assets), and only the **importer** is a separate
+program (below), because it is the one part that needs a PostgreSQL driver.
 
 ## Configuration
 
-See `.env.example`. The ones that matter:
+Same env keys and defaults as `.env.example`; see that file for the full list.
 
-| Variable | Meaning |
-| --- | --- |
-| `APP_URL` | internal origin the container listens on (`http://127.0.0.1:3550`) |
-| `SSO_ISSUER` | public base URL; becomes the `iss` claim and the origin of picture and reset URLs |
-| `DB_*` | PostgreSQL on the AI host over the tailnet, TLS required |
-| `SSO_ACCESS_TOKEN_TTL` | user access token lifetime, default `604800` (7 days) |
-| `SSO_DISPLAY_TIMEZONE` | zone the console prints times in, default `Asia/Seoul` |
-| `SSO_BOOTSTRAP_ADMIN_*` | first super administrator (skipped once one exists) |
-
-## Deploy
-
-```bash
-# 1. build + install the service (idempotent, also used for upgrades)
-./deploy/scripts/install.sh
-
-# 2. expose it: add `import prefix sso 127.0.0.1:3550` to /etc/caddy/Caddyfile
-sudo systemctl reload caddy
-
-# 3. check
-curl -fsS https://host/sso/healthz
-```
-
-The unit (`deploy/quadlet/sso.container`) runs the image with a read-only rootfs,
-`--cap-drop all`, `no-new-privileges` and tmpfs for the two writable paths, as an
-unprivileged user. The bootstrap password is a **podman secret** mounted at
-`/run/secrets/sso_bootstrap_admin_password`, never an environment variable:
-
-```bash
-podman secret create sso-bootstrap-admin-password ~/.config/sso/bootstrap_admin_password
-podman exec sso cat /run/secrets/sso_bootstrap_admin_password   # read it back when needed
-```
-
-### Public entry point
-
-The service binds every interface by design, so it is also served publicly. Two
-caddy listeners exist on this host. The tailnet one strips `/sso` before forwarding;
-the public one gives the service its own origin and proxies root paths unchanged,
-with the old `521985.xyz/sso…` URLs answered by a 308 to `sso.521985.xyz`:
-
-| Listener | File | Serves |
+| Variable | Meaning | Default |
 | --- | --- | --- |
-| tailnet | `/etc/caddy/Caddyfile` (`http://:8080`) | `https://egg.tail9f7f1f.ts.net/sso` |
-| public | `/etc/daily-work-web/Caddyfile` (`521985.xyz:443`) | `https://sso.521985.xyz` |
+| `APP_KEY` | avatar HMAC key and the seed of the signing-key encryption key | — (set it) |
+| `APP_URL` | internal origin used for URL generation | `http://127.0.0.1:3550` |
+| `SSO_ISSUER` | public base URL, including the mount point; becomes `iss` | `$APP_URL/sso` |
+| `SSO_LISTEN` | listen address | `0.0.0.0:3550` |
+| `SSO_URL_SCHEME` | scheme for generated absolute links | `https` |
+| `SSO_FORCE_ROOT_URL` | put the mount point into generated URLs | `true` |
+| `SESSION_PATH` | session cookie path / mount point | `/sso` |
+| `SESSION_SECURE_COOKIE` | `Secure` on the session cookie | `true` |
+| `SESSION_LIFETIME` | session idle lifetime, minutes | `720` |
+| `WR_DB` | the SQLite data file | `storage/sso.db` |
+| `WR_STORAGE` | avatar tree root | `storage` |
+| `SSO_ACCESS_TOKEN_TTL` | access token lifetime, seconds | `604800` (7 days) |
+| `SSO_REFRESH_TOKEN_TTL` | refresh token lifetime, seconds | `2592000` (30 days) |
+| `SSO_RESET_LINK_TTL` | password reset link lifetime, seconds | `86400` |
+| `SSO_DISPLAY_TIMEZONE` | zone the console prints times in (clock stays UTC) | `Asia/Seoul` |
+| `SSO_BOOTSTRAP_ADMIN_USERNAME` / `_NAME` / `_PASSWORD` / `_PASSWORD_FILE` | first super administrator | — |
 
-`deploy/caddy/public.Caddyfile` is the public file verbatim. It exposes only what
-actually runs on the host; everything else answers 404 rather than proxying to a
-dead backend.
+`APP_KEY` is read as the exact string in the environment — the avatar URL is
+`hex(HMAC-SHA256(APP_KEY, "<id>|<version>"))`, which is what the PHP hashed
+(`config('app.key')`), so links minted before the switch keep working. The
+signing key's private half is encrypted with AES-256-GCM under a key derived
+from the same value.
 
-`SSO_ISSUER` must be the **canonical public** URL (`https://sso.521985.xyz`), not
-the tailnet name: the issuer is embedded in every token and in the discovery
-document, and a public client cannot resolve a tailnet host. Requests arriving
-through the tailnet still get tailnet-hosted links and redirects, because the
-middleware derives the root from the request's `Host`.
+Mail is stubbed deliberately: users have no address, so there is no
+"forgot password" flow. An administrator mints a one-time link and the service
+logs it (`password reset link for <username>: <url>`) as well as showing it
+once in the console.
 
-### Database
+## The data file
 
-Provisioned once on the PostgreSQL host:
+`WR_DB` is one SQLite database (WAL mode, `busy_timeout`, foreign keys on). The
+schema is created on open from idempotent `CREATE TABLE IF NOT EXISTS`
+statements equivalent to the PHP migrations' final state, so a restart is always
+safe and an empty directory is a valid deployment.
 
-```sql
-CREATE ROLE sso LOGIN PASSWORD '…';
-CREATE DATABASE sso OWNER sso;
-CREATE DATABASE sso_test OWNER sso;   -- for the test suite
+- Tokens and codes are rows as well as signatures: revoking one, or disabling a
+  person, takes effect on the next request (`docs/DESIGN.md` §3 in the PHP repo).
+- Sessions are rows too, so "sign out everywhere" reaches browsers.
+- Signing keys are generated on first boot and kept here, private half
+  encrypted with `APP_KEY`; `-rotate-keys` retires the active key but keeps the
+  old public key in the JWKS so 7-day tokens signed before the rotation still
+  verify.
+- `-backup` uses SQLite's `VACUUM INTO`, which is consistent while the service
+  runs.
+
+Avatars live under `WR_STORAGE/avatars/<user>/<file>`; the database stores the
+same relative path the PHP's local disk used.
+
+## Importing the PostgreSQL data
+
+Production data must survive the switch. The importer is a separate module and
+binary so the shipped service links no PostgreSQL driver:
+
+```sh
+# 1. create the SQLite schema (any run of the service does this)
+./sso -bootstrap          # or just start it once and stop it
+
+# 2. build the importer
+cd tools/pgmigrate && go build -o ../../sso-pgmigrate . && cd ../..
+
+# 3. copy (the service finds sso-pgmigrate beside itself, or use -pgmigrate)
+./sso -import-postgres 'postgres://sso@host:5432/sso?sslmode=require'
 ```
 
-`pg_hba.conf` must accept the service host over the tailnet (`hostssl … 100.64.0.0/10
-scram-sha-256`), which it already does on the AI host.
+What it copies: `users` (bcrypt hashes included — existing passwords keep
+working), `oauth_clients`, `access_tokens`, `refresh_tokens`,
+`oauth_auth_codes`, `user_password_resets`, `audit_logs`, and the **public**
+halves of `signing_keys`. Ids are preserved, so `subject` claims, avatar URLs
+and audit references still line up. Rows are counted on both sides; a mismatch
+fails the import instead of leaving half a table.
 
-## Development
+What it does not copy, on purpose:
 
-```bash
-composer install
-php artisan test          # needs sso_test in PostgreSQL, see phpunit.xml
-vendor/bin/pint
-```
+| Skipped | Why |
+| --- | --- |
+| `sessions` | Laravel stores a PHP-serialised payload; people sign in again. |
+| `signing_keys.private_key` | Encrypted with Laravel's encrypter, which this service cannot open (and should not). The public halves are imported as retired keys so existing tokens verify; a fresh active key is generated on first boot, so new tokens are signed. |
+| `created_by`, `reviewed_by` | Pointed at the old `admins` table; the PHP's own migration cleared them because admin ids do not map to user ids. |
+| `guest_devices`, `blacklist_entries`, `registration_invites` | Tables the design left in place, unread (`DESIGN.md` §5). |
 
-No Node, no bundler: the console is Blade plus one hand-written stylesheet at
-`public/assets/app.css`.
+After the import, everybody's access and refresh tokens keep working until they
+expire; the only user-visible change is that a token issued by the old key is
+verified against the imported public key rather than a new one.
+
+## Endpoints
+
+Identical paths to the PHP (relative to `SSO_ISSUER`): discovery and JWKS,
+`/oauth/authorize` (code + mandatory PKCE S256 for public clients),
+`/oauth/token` (authorization_code, refresh_token with rotation and family
+revocation, client_credentials), `/oauth/userinfo`, `/oauth/introspect`,
+`/oauth/revoke`, `/api/me`, `/api/users`, `/avatar/{id}/{v}?sig=`,
+`/healthz`, and the console under `/admin`.
+
+`/healthz` never touches the database: a brief outage should not restart-loop
+the proxy layer.
 
 ## Layout
 
 ```
-app/Http/Controllers/OAuth/   protocol endpoints
-app/Http/Controllers/Admin/   console
-app/Http/Controllers/Api/     account API (docs/api.md)
-app/Services                  UserAccounts (every account change), TokenService, Jwt,
-                              SigningKeyService, ClientAuthenticator, AuditLogger
-deploy/                       Containerfile, nginx/php/supervisor config, quadlet, caddy
-docs/DESIGN.md                decisions and threat notes
-docs/api.md                   account API
+main.go                    flags, embed, boot (bootstrap admin), serve
+smoke_test.go              discovery, code+PKCE, userinfo, refresh, console, healthz
+internal/config            env, defaults, scope vocabulary
+internal/store             schema.sql + typed SQL (users, clients, tokens, audit, keys, sessions)
+internal/secure            RS256 JWT, RSA keys and their envelope, PKCE, bcrypt, random strings
+internal/service           UserAccounts, TokenService, SigningKeyService, resets, audit, client auth
+internal/server            net/http routes, session/CSRF/flash, handlers, templates
+web/templates              html/template mirroring the Blade markup
+web/assets                 app.css, theme.css, console.js, theme-init.js — copied verbatim
+tools/pgmigrate            PostgreSQL → SQLite importer (own go.mod, not shipped)
 ```
+
+## The one dependency
+
+`golang.org/x/crypto/bcrypt` is the only library beyond the SQLite driver, and
+it exists for one reason: the PHP stored Laravel bcrypt hashes (`$2y$…`), and
+people must sign in after the switch. bcrypt is an algorithm, not a framework
+feature — `bcrypt.CompareHashAndPassword` reads exactly what `Hash::make` wrote,
+and new passwords are written in the same format. Everything else (JWT, JWKS,
+PKCE, AES-GCM, HMAC, random tokens) is `crypto/*` and `encoding/*`.
+
+## Differences worth knowing
+
+- Rate limiting is in-memory (one process owns the counters) rather than the
+  database/Redis cache. Same limits: 10 sign-in attempts per 5 minutes per
+  username+IP; the API's 120/240 per minute.
+- `go test` covers the protocol and console flows against a temporary SQLite
+  file; it does not start a second process, so the smoke test is the contract
+  for "the binary works", not a re-implementation of every PHPUnit case.
+- The console's CSRF handling matches Laravel's `419` behaviour for the login
+  form sent twice (it carries on to the parked authorization request), but the
+  status code is `419` only for non-login form replays.
+- "이 브라우저에서 로그인 유지" sets no separate remember-me cookie: the session
+  row already lives `SESSION_LIFETIME` minutes, and the checkbox is kept in the
+  markup so the page looks the same. Nothing is lost except a longer idle
+  timeout on that one browser.

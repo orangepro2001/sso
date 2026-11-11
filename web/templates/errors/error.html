@@ -1,0 +1,12 @@
+{{define "title"}}{{.Title}}{{end}}
+{{define "main-class"}}{{.Main}}{{end}}
+{{define "content"}}
+    <h1>{{.Title}}</h1>
+    <p class="lead">{{.Message}}</p>
+    <div class="card">
+        <div class="form-actions" style="margin-top:0">
+            <a class="btn primary" href="{{.Base}}/">처음으로</a>
+            {{if not .Me}}<a class="btn" href="{{.Base}}/login">로그인</a>{{end}}
+        </div>
+    </div>
+{{end}}

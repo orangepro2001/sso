@@ -1,3 +1,0 @@
-# Uploaded profile pictures (app/Http/Controllers/AvatarController.php). Named, so
-# they outlive the container and every image rebuild.
-[Volume]

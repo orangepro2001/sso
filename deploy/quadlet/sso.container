@@ -1,13 +1,6 @@
-# Quadlet unit for the SSO authorization center.
-#
-# Installed by deploy/scripts/install.sh into ~/.config/containers/systemd/ and
-# started as a systemd --user service (sso.service). Host networking keeps the
-# published-port story simple: nginx inside the container binds 0.0.0.0:3550 and
-# caddy reaches it on 127.0.0.1:3550.
-
+# SSO — Go binary, SQLite and avatars on the storage volume.
 [Unit]
 Description=SSO authorization center (OAuth2 / OIDC)
-Documentation=https://github.com/orangepro2001/sso
 Wants=network-online.target
 After=network-online.target
 
@@ -15,42 +8,32 @@ After=network-online.target
 Image=localhost/sso:current
 ContainerName=sso
 Network=host
-
+User=65534:65534
 Environment=SSO_LISTEN=0.0.0.0:3550
+Environment=WR_DB=/app/storage/sso.db
+Environment=WR_STORAGE=/app/storage/app/private
 EnvironmentFile=%h/.config/sso/env
 
-# Writable state on tmpfs: the image is built for a read-only rootfs.
-Tmpfs=/tmp:rw,mode=1777
-# storage is a named volume, not tmpfs: it holds profile pictures
-# (app/Http/Controllers/Auth/ProfileController.php). Framework caches living here too
-# is harmless and means the directory survives a restart.
-Volume=sso-storage.volume:/app/storage:Z
-Tmpfs=/app/bootstrap/cache:rw,mode=1777
-
 ReadOnly=true
-NoNewPrivileges=true
-DropCapability=ALL
-
-# The bootstrap administrator password is a podman secret mounted as a file, so it
-# never appears in the unit file or in `podman inspect`. The uid/gid are the
-# container's unprivileged user (nobody, 65534): without them the mount is
-# root-only and the bootstrap step cannot read it.
+Tmpfs=/tmp
+Volume=sso-storage.volume:/app/storage:Z
 Secret=sso-bootstrap-admin-password,type=mount,target=/run/secrets/sso_bootstrap_admin_password,uid=65534,gid=65534,mode=0400
 
-HealthCmd=["curl","-fsS","-o","/dev/null","http://127.0.0.1:3550/healthz"]
+NoNewPrivileges=true
+DropCapability=ALL
+HealthCmd=["/bin/sh","-c","wget -qO- http://127.0.0.1:3550/healthz >/dev/null"]
 HealthInterval=30s
 HealthTimeout=5s
 HealthRetries=3
-HealthStartPeriod=30s
+HealthStartPeriod=15s
 HealthOnFailure=kill
 LogDriver=journald
-
 AutoUpdate=local
 
 [Service]
 Restart=always
 RestartSec=5
-TimeoutStartSec=120
+TimeoutStartSec=60
 
 [Install]
 WantedBy=default.target

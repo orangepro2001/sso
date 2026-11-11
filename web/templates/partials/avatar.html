@@ -1,0 +1,11 @@
+{{define "avatar"}}
+{{- /* A person's picture, or the first letter of their name. */ -}}
+{{- $size := .Size -}}
+{{- $sizeClass := "" -}}
+{{- if $size -}}{{- $sizeClass = printf "avatar--%s" $size -}}{{- end -}}
+{{- if .User.HasAvatar -}}
+    <img class="avatar {{$sizeClass}}" src="{{picture .User}}" alt="" loading="lazy" {{if .Preview}}data-avatar-preview{{end}}>
+{{- else -}}
+    <span class="avatar {{$sizeClass}}" aria-hidden="true" {{if .Preview}}data-avatar-preview{{end}}>{{initial .User}}</span>
+{{- end -}}
+{{end}}

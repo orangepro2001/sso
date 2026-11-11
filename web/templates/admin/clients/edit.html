@@ -1,0 +1,76 @@
+{{define "title"}}{{.Title}}{{end}}
+{{define "main-class"}}{{.Main}}{{end}}
+{{define "content"}}
+    <a class="back" href="{{.Base}}/admin/clients">‹ 연결된 앱</a>
+    <h1>{{.Client.Name}}</h1>
+    <p class="lead mono">{{.Client.ClientID}}</p>
+
+    <form class="card" method="post" action="{{.Base}}/admin/clients/{{.Client.ID}}">
+        <input type="hidden" name="_token" value="{{.CSRF}}">
+        <input type="hidden" name="_method" value="PUT">
+
+        <label for="name">앱 이름</label>
+        <input id="name" type="text" name="name" value="{{.F.Value "name" .Client.Name}}" required>
+
+        <label for="type">종류</label>
+        <select id="type" name="type">
+            <option value="public" {{if eq (.F.Value "type" .Client.Type) "public"}}selected{{end}}>public — PKCE 필수</option>
+            <option value="confidential" {{if eq (.F.Value "type" .Client.Type) "confidential"}}selected{{end}}>confidential — 시크릿 사용</option>
+        </select>
+
+        <label for="redirect_uris">리디렉션 URI <span class="muted small">(한 줄에 하나, 정확히 일치해야 함)</span></label>
+        <textarea id="redirect_uris" name="redirect_uris">{{.F.Value "redirect_uris" (join .Client.RedirectURIs "\n")}}</textarea>
+
+
+        <label for="home_url">홈 주소 <span class="muted small">(사람이 여는 주소; 비우면 시작 화면에 안 보임)</span></label>
+        <input id="home_url" type="url" name="home_url" maxlength="500"
+               value="{{.F.Value "home_url" (deref .Client.HomeURL)}}" placeholder="https://report.521985.xyz">
+
+        <label for="sort_order">시작 화면 순서</label>
+        <input id="sort_order" type="number" name="sort_order" min="0" max="999" value="{{.F.Value "sort_order" (itoa .Client.SortOrder)}}">
+
+        <label class="row" style="margin-top:12px">
+            <input type="checkbox" name="in_launcher" value="1" style="width:auto" {{if .F.Checked "in_launcher" .Client.InLauncher}}checked{{end}}>
+            <span>시작 화면에 표시</span>
+        </label>
+
+        <label>허용 범위 (scope)</label>
+        {{range .Scopes}}
+            <label class="row" style="margin:4px 0">
+                <input type="checkbox" name="allowed_scopes[]" value="{{.}}" style="width:auto"
+                       {{if $.F.ScopeChecked .}}checked{{end}}>
+                <span class="mono small">{{.}}</span>
+            </label>
+        {{end}}
+
+        <label class="row" style="margin-top:14px">
+            <input type="checkbox" name="active" value="1" style="width:auto" {{if .F.Checked "active" .Client.Active}}checked{{end}}>
+            <span>사용 중</span>
+        </label>
+
+        <label class="row" style="margin-top:10px">
+            <input type="checkbox" name="rotate_secret" value="1" style="width:auto">
+            <span>시크릿 새로 발급 (confidential 앱만, 한 번만 보임 — 앱 설정도 바꿔야 합니다)</span>
+        </label>
+
+        <label for="note">메모</label>
+        <textarea id="note" name="note">{{.F.Value "note" (deref .Client.Note)}}</textarea>
+
+        <div class="row" style="margin-top:20px">
+            <button class="primary" type="submit">저장</button>
+            <a class="btn" href="{{.Base}}/admin/clients">목록으로</a>
+        </div>
+    </form>
+
+    <h2>연동 정보</h2>
+    <div class="card">
+        <pre>issuer        {{.Issuer}}
+discovery     {{.Issuer}}/.well-known/openid-configuration
+authorize     {{.Issuer}}/oauth/authorize
+token         {{.Issuer}}/oauth/token
+userinfo      {{.Issuer}}/oauth/userinfo
+introspect    {{.Issuer}}/oauth/introspect
+redirect_uri  {{if .Client.RedirectURIs}}{{index .Client.RedirectURIs 0}}{{else}}(등록 안 됨){{end}}
+scopes        {{join .Client.AllowedScopes " "}}</pre>
+    </div>
+{{end}}

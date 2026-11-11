@@ -1,0 +1,200 @@
+{{define "title"}}{{.Title}}{{end}}
+{{define "main-class"}}{{.Main}}{{end}}
+{{define "content"}}
+    <a class="back" href="{{.Base}}/admin/users">‹ 사용자 목록</a>
+
+    {{- /* Who this is, and the four things done most often: one click each. */ -}}
+    <section class="card">
+        <div class="profile-head">
+            {{template "avatar" (dict "User" .User "Size" "lg")}}
+            <div style="min-width:0">
+                <h1>
+                    {{.User.Name}}
+                    {{if .User.IsSuperAdmin}}<span class="badge admin">관리자</span>{{end}}
+                    {{if not .User.IsActive}}<span class="badge bad dot">비활성</span>{{end}}
+                    {{if .Self}}<span class="badge">나</span>{{end}}
+                </h1>
+                <div class="meta">
+                    <span class="mono">{{.User.Username}}</span>
+                    · 가입 {{at .User.CreatedAt "2006-01-02"}}
+                    · 마지막 로그인 <span title="{{at .User.LastLoginAt "2006-01-02 15:04"}}">{{ago .User.LastLoginAt "없음"}}</span>
+                    {{with .User.LastLoginIP}}<span class="mono">({{.}})</span>{{end}}
+                </div>
+            </div>
+        </div>
+
+        <div class="quick">
+            {{if not .Self}}
+                <form method="post" action="{{.Base}}/admin/users/{{.User.ID}}/role"
+                      data-confirm="{{if .User.IsSuperAdmin}}{{.User.Name}} 님의 관리자 권한을 내릴까요?{{else}}{{.User.Name}} 님을 관리자로 지정할까요? 이 콘솔에서 모든 계정을 바꿀 수 있게 됩니다.{{end}}">
+                    <input type="hidden" name="_token" value="{{.CSRF}}">
+                    <input type="hidden" name="role" value="{{if .User.IsSuperAdmin}}user{{else}}super_admin{{end}}">
+                    <button type="submit">{{if .User.IsSuperAdmin}}일반 사용자로 변경{{else}}관리자로 지정{{end}}</button>
+                </form>
+
+                <form method="post" action="{{.Base}}/admin/users/{{.User.ID}}/status"
+                      {{if .User.IsActive}}data-confirm="{{.User.Name}} 님의 계정을 비활성화할까요? 모든 앱과 브라우저에서 즉시 로그아웃되고 다시 로그인할 수 없습니다."{{end}}>
+                    <input type="hidden" name="_token" value="{{.CSRF}}">
+                    <input type="hidden" name="status" value="{{if .User.IsActive}}disabled{{else}}active{{end}}">
+                    {{if .User.IsActive}}
+                        <button class="danger" type="submit">비활성화</button>
+                    {{else}}
+                        <button class="primary" type="submit">다시 활성화</button>
+                    {{end}}
+                </form>
+            {{end}}
+
+            <a class="btn" href="#password">비밀번호 재설정</a>
+
+            <form method="post" action="{{.Base}}/admin/users/{{.User.ID}}/sign-out"
+                  data-confirm="{{.User.Name}} 님을 모든 앱과 브라우저에서 로그아웃시킬까요?{{if .Self}} (지금 이 브라우저는 유지됩니다){{end}}">
+                <input type="hidden" name="_token" value="{{.CSRF}}">
+                <button type="submit">모든 곳에서 로그아웃</button>
+            </form>
+
+            <a class="btn" href="{{.Base}}/admin/audit?user={{.User.ID}}">활동 기록</a>
+        </div>
+    </section>
+
+    <div class="split">
+        <div class="stack">
+            <form class="card" method="post" action="{{.Base}}/admin/users/{{.User.ID}}">
+                <input type="hidden" name="_token" value="{{.CSRF}}">
+                <input type="hidden" name="_method" value="PUT">
+                <h2 class="card__title">기본 정보</h2>
+
+                <label for="name">이름</label>
+                <input id="name" type="text" name="name" value="{{.F.Value "name" .User.Name}}" required maxlength="120">
+                <div class="hint">앱에 표시되는 이름입니다. 직급을 붙여도 됩니다.</div>
+
+                <label for="username">아이디</label>
+                <input id="username" type="text" name="username" value="{{.F.Value "username" .User.Username}}" required
+                       autocapitalize="none" spellcheck="false" autocomplete="off">
+                <div class="hint">로그인할 때 쓰는 이름입니다. 바꾸면 다음 로그인부터 새 아이디를 써야 합니다.</div>
+
+                <label for="note">메모 <span class="muted small">(관리자만 봅니다)</span></label>
+                <textarea id="note" name="note" rows="3" style="font-family:inherit;font-size:var(--text-md)">{{.F.Value "note" (deref .User.Note)}}</textarea>
+
+                <div class="form-actions">
+                    <button class="primary" type="submit">저장</button>
+                </div>
+            </form>
+
+            <section class="card" id="password">
+                <h2 class="card__title">비밀번호</h2>
+                <p class="card__hint">새 비밀번호를 정해서 알려 주거나, 링크를 보내 본인이 정하게 하세요. 어느 쪽이든 이 사람은 모든 앱에서 로그아웃됩니다.</p>
+
+                <form method="post" action="{{.Base}}/admin/users/{{.User.ID}}/password"
+                      data-confirm="{{.User.Name}} 님의 비밀번호를 바꿀까요? 모든 앱에서 로그아웃됩니다.">
+                    <input type="hidden" name="_token" value="{{.CSRF}}">
+                    <label for="new-password">새 비밀번호</label>
+                    <div class="input-row">
+                        <input id="new-password" type="password" name="password" autocomplete="new-password" placeholder="비워 두면 자동으로 만듭니다">
+                        <button type="button" data-reveal="#new-password">보기</button>
+                    </div>
+                    <div class="form-actions">
+                        <button class="primary" type="submit">비밀번호 설정</button>
+                        <span class="hint" style="margin:0">설정한 비밀번호는 다음 화면 맨 위에 한 번 보입니다.</span>
+                    </div>
+                </form>
+
+                <div class="or">또는</div>
+
+                <form method="post" action="{{.Base}}/admin/users/{{.User.ID}}/reset-link">
+                    <input type="hidden" name="_token" value="{{.CSRF}}">
+                    <div class="form-actions" style="margin-top:0">
+                        <button type="submit">재설정 링크 만들기</button>
+                        <span class="hint" style="margin:0">한 번만 쓰는 링크, 24시간 유효. 메신저로 보내면 본인이 새 비밀번호를 정합니다.</span>
+                    </div>
+                </form>
+            </section>
+
+            {{if not .Self}}
+                <form class="card danger-zone" method="post" action="{{.Base}}/admin/users/{{.User.ID}}">
+                    <input type="hidden" name="_token" value="{{.CSRF}}">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <h2 class="card__title">계정 삭제</h2>
+                    <p class="card__hint">
+                        되돌릴 수 없습니다. 보통은 <strong>비활성화</strong>로 충분합니다 — 로그인만 막고 기록은 남습니다.
+                        삭제해도 각 앱에 남은 작성 기록은 지워지지 않습니다.
+                    </p>
+                    <label for="confirm">확인을 위해 아이디 <span class="mono">{{.User.Username}}</span> 를 입력하세요</label>
+                    <input id="confirm" type="text" name="confirm" data-match="{{.User.Username}}" autocomplete="off" autocapitalize="none" spellcheck="false">
+                    <div class="form-actions">
+                        <button class="danger solid" type="submit">영구 삭제</button>
+                    </div>
+                </form>
+            {{end}}
+        </div>
+
+        <div class="stack">
+            <section class="card">
+                <h2 class="card__title">프로필 사진</h2>
+                <p class="card__hint">앱의 담당자 표시 등에 쓰입니다.</p>
+                {{template "avatar-upload" (dict "User" .User "Action" (printf "%s/admin/users/%d/avatar" .Base .User.ID) "RemoveAction" (printf "%s/admin/users/%d/avatar" .Base .User.ID) "CSRF" .CSRF)}}
+            </section>
+
+            <section class="card">
+                <h2 class="card__title">로그인 중인 앱</h2>
+                {{if not .Tokens}}
+                    <p class="empty" style="padding-bottom:0">지금 로그인해 있는 앱이 없습니다.</p>
+                {{else}}
+                    <ul class="rows">
+                        {{range .Tokens}}
+                            <li>
+                                <div class="grow">
+                                    <div><strong>{{.AppName}}</strong></div>
+                                    <div class="sub">{{with .Token.IssuedIP}}{{.}}{{end}} {{limit (deref .Token.UserAgent) 60}}</div>
+                                </div>
+                                <div class="when" title="만료 {{at .Token.ExpiresAt "2006-01-02 15:04"}}">{{ago .Token.CreatedAt ""}}</div>
+                            </li>
+                        {{end}}
+                    </ul>
+                {{end}}
+            </section>
+
+            <section class="card">
+                <div class="row" style="justify-content:space-between">
+                    <h2 class="card__title">최근 활동</h2>
+                    <a class="small" href="{{.Base}}/admin/audit?user={{.User.ID}}">전체 보기 ›</a>
+                </div>
+                {{if not .Activity}}
+                    <p class="empty" style="padding-bottom:0">기록이 없습니다.</p>
+                {{else}}
+                    <ul class="rows">
+                        {{range .Activity}}
+                            {{$tone := tone .Event}}
+                            <li>
+                                <div class="grow">
+                                    <div>
+                                        <span class="{{if $tone}}event badge {{$tone}}{{end}}">{{label .Event}}</span>
+                                        {{with $.P.SubjectIfActor . $.User.ID}}
+                                            <span class="muted small">→ {{.}}</span>
+                                        {{else}}
+                                            {{with $.P.ActorIfOther . $.User.ID}}
+                                                <span class="muted small">by {{.}}</span>
+                                            {{end}}
+                                        {{end}}
+                                    </div>
+                                    {{with $.P.Detail .}}<div class="sub">{{.}}</div>{{end}}
+                                </div>
+                                <div class="when" title="{{at .CreatedAt "2006-01-02 15:04:05"}}">{{ago .CreatedAt ""}}</div>
+                            </li>
+                        {{end}}
+                    </ul>
+                {{end}}
+            </section>
+
+            <section class="card">
+                <h2 class="card__title">계정 정보</h2>
+                <dl class="kv">
+                    <dt>번호</dt><dd class="mono">{{.User.ID}}</dd>
+                    <dt>만든 사람</dt><dd>{{if .Creator}}{{.Creator.Name}}{{else if .User.SelfRegistered}}본인 가입{{else}}—{{end}}</dd>
+                    <dt>가입</dt><dd>{{at .User.CreatedAt "2006-01-02 15:04"}}</dd>
+                    <dt>마지막 로그인</dt><dd>{{at .User.LastLoginAt "2006-01-02 15:04"}}</dd>
+                    <dt>사진 변경</dt><dd>{{at .User.AvatarUpdatedAt "2006-01-02 15:04"}}</dd>
+                </dl>
+            </section>
+        </div>
+    </div>
+{{end}}

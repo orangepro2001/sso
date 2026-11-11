@@ -1,0 +1,78 @@
+{{define "title"}}{{.Title}}{{end}}
+{{define "main-class"}}{{.Main}}{{end}}
+{{define "content"}}
+    <div class="page-head">
+        <div>
+            <h1>활동 기록</h1>
+            <p class="lead">
+                {{if .Person}}
+                    <a href="{{.Base}}/admin/users/{{.Person.ID}}">{{.Person.Name}}</a> 님과 관련된 기록입니다.
+                    <a class="small" href="{{.Base}}/admin/audit{{if .Kind}}?kind={{.Kind}}{{end}}">모든 사람 보기</a>
+                {{else}}
+                    로그인, 계정 변경, 앱 토큰 — 보안에 관련된 일은 모두 여기에 남습니다.
+                {{end}}
+            </p>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <form method="get" action="{{.Base}}/admin/audit" class="row">
+            {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
+            <select name="user" data-autosubmit style="width:auto;min-width:200px" aria-label="사람">
+                <option value="">모든 사람</option>
+                {{range .Everyone}}
+                    <option value="{{.ID}}" {{if $.Person}}{{if eq $.Person.ID .ID}}selected{{end}}{{end}}>{{.Name}} ({{.Username}})</option>
+                {{end}}
+            </select>
+            <noscript><button type="submit">보기</button></noscript>
+        </form>
+        <div class="chips">
+            {{range .KindChips}}
+                <a class="chip{{if .Active}} active{{end}}" href="{{.URL}}">{{.Label}}</a>
+            {{end}}
+        </div>
+    </div>
+
+    <div class="card" style="padding-top:8px">
+        {{if not .Logs}}
+            <p class="empty">기록이 없습니다.</p>
+        {{else}}
+            <table class="list">
+                <thead><tr><th>언제</th><th>무슨 일</th><th>누가</th><th class="hide-sm">대상 / 내용</th><th class="hide-sm">IP</th></tr></thead>
+                <tbody>
+                {{range .Logs}}
+                    {{$tone := tone .Event}}
+                    {{$subject := $.P.Subject .}}
+                    {{$detail := $.P.Detail .}}
+                    <tr>
+                        <td class="small" style="white-space:nowrap">
+                            {{at .CreatedAt "01-02 15:04"}}
+                            <div class="sub">{{ago .CreatedAt ""}}</div>
+                        </td>
+                        <td>
+                            <span class="{{if $tone}}event badge {{$tone}}{{end}}">{{label .Event}}</span>
+                            <details class="raw">
+                                <summary>{{.Event}}</summary>
+                                <pre>{{$.P.Raw .}}</pre>
+                            </details>
+                        </td>
+                        <td class="small">
+                            {{if and .ActorType (or (eq (deref .ActorType) "user") (eq (deref .ActorType) "admin")) ($.P.Known .ActorID)}}
+                                <a href="{{$.Base}}/admin/audit?user={{deref .ActorID}}">{{$.P.Actor .}}</a>
+                            {{else}}
+                                {{$.P.Actor .}}
+                            {{end}}
+                        </td>
+                        <td class="small hide-sm">
+                            {{if $subject}}{{$subject}}{{end}}
+                            {{if $detail}}<div class="sub">{{$detail}}</div>{{end}}
+                        </td>
+                        <td class="mono small hide-sm">{{deref .IP}}</td>
+                    </tr>
+                {{end}}
+                </tbody>
+            </table>
+            {{template "pagination" .Pager}}
+        {{end}}
+    </div>
+{{end}}

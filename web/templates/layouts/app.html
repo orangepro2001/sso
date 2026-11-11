@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{block "title" .}}계정{{end}} — {{.AppName}}</title>
+    <meta name="color-scheme" content="light dark">
+    <script src="{{.A.ThemeInit}}"></script>
+    <link rel="stylesheet" href="{{.A.Theme}}">
+    <link rel="stylesheet" href="{{.A.App}}">
+    <script src="{{.A.Console}}" defer></script>
+</head>
+<body>
+{{- /* $me = auth('web')->user() */ -}}
+<header class="top">
+    <a class="brand" href="{{.Base}}/" style="text-decoration:none">계정 센터</a>
+    <nav>
+        {{if and .Me .Me.IsSuperAdmin}}
+            <a href="{{.Base}}/admin/users" class="{{if eqs .Nav "users"}}active{{end}}">사용자</a>
+            <a href="{{.Base}}/admin/audit" class="{{if eqs .Nav "audit"}}active{{end}}">활동 기록</a>
+            <a href="{{.Base}}/admin/clients" class="{{if eqs .Nav "clients"}}active{{end}}">연결된 앱</a>
+        {{end}}
+        {{if .Me}}
+            <a href="{{.Base}}/account" class="{{if eqs .Nav "account"}}active{{end}}">내 계정</a>
+        {{end}}
+    </nav>
+    <span class="spacer"></span>
+
+    <button class="theme-toggle icon-btn" type="button" data-theme-toggle title="테마" aria-label="테마"></button>
+
+    {{if .Me}}
+        <a class="me" href="{{.Base}}/account">
+            {{template "avatar" (dict "User" .Me "Size" "sm")}}
+            <span class="me__name">{{.Me.Name}}</span>
+        </a>
+        <form method="post" action="{{.Base}}/logout">
+            <input type="hidden" name="_token" value="{{.CSRF}}">
+            <button class="link" type="submit">로그아웃</button>
+        </form>
+    {{end}}
+</header>
+
+<main class="{{block "main-class" .}}{{end}}">
+    {{if .Status}}
+        <div class="flash ok" role="status">{{.Status}}</div>
+    {{end}}
+
+    {{if .Generated}}
+        <div class="flash key">
+            <strong>새 비밀번호 — 지금 한 번만 보입니다. 복사해서 본인에게 전달하세요.</strong>
+            {{range $i, $secret := .Generated}}
+                <div class="secret">
+                    <span class="mono">{{$secret.Username}}</span>
+                    <code id="secret-{{$i}}">{{$secret.Password}}</code>
+                    <button type="button" data-copy="#secret-{{$i}}">복사</button>
+                </div>
+            {{end}}
+        </div>
+    {{end}}
+
+    {{if .ResetURL}}
+        <div class="flash key">
+            <strong>비밀번호 재설정 링크 — 지금 한 번만 보입니다.</strong>
+            <div class="secret">
+                <code id="reset-url">{{.ResetURL}}</code>
+                <button type="button" data-copy="#reset-url">복사</button>
+            </div>
+            <div class="small muted" style="margin-top:6px">
+                메신저 등으로 본인에게 보내 주세요. 한 번만 쓸 수 있고 {{if .ResetExpires}}{{.ResetExpires}}까지{{else}}24시간{{end}} 유효합니다.
+                새 링크를 만들면 이 링크는 바로 무효가 됩니다.
+            </div>
+        </div>
+    {{end}}
+
+    {{if .ClientSecret}}
+        <div class="flash key">
+            <strong>클라이언트 시크릿 — 지금 한 번만 보입니다.</strong>
+            <div class="secret">
+                <code id="client-secret">{{.ClientSecret}}</code>
+                <button type="button" data-copy="#client-secret">복사</button>
+            </div>
+        </div>
+    {{end}}
+
+    {{if .F.Errors}}
+        <div class="flash bad" role="alert">
+            {{range $field, $messages := .F.Errors}}
+                {{range $messages}}
+                    <div>{{.}}</div>
+                {{end}}
+            {{end}}
+        </div>
+    {{end}}
+
+    {{template "content" .}}
+</main>
+</body>
+</html>

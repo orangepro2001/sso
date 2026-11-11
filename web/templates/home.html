@@ -1,0 +1,49 @@
+{{define "title"}}{{.Title}}{{end}}
+{{define "main-class"}}{{.Main}}{{end}}
+{{define "content"}}
+    {{if .User}}
+        <div class="card">
+            <div class="profile-head">
+                {{template "avatar" (dict "User" .User "Size" "lg")}}
+                <div>
+                    <h1>{{.User.Name}} 님, 안녕하세요</h1>
+                    <div class="meta"><span class="mono">{{.User.Username}}</span>{{if .User.IsSuperAdmin}} · <span class="badge admin">관리자</span>{{end}}</div>
+                </div>
+            </div>
+            <div class="quick">
+                {{if .ResumeURL}}
+                    <a class="btn primary" href="{{.ResumeURL}}">하던 로그인 계속하기</a>
+                {{end}}
+                <a class="btn" href="{{.Base}}/account">내 계정 (사진·비밀번호)</a>
+                {{if .User.IsSuperAdmin}}
+                    <a class="btn" href="{{.Base}}/admin/users">사용자 관리</a>
+                {{end}}
+            </div>
+        </div>
+
+        {{if .Apps}}
+            <h2>내 앱</h2>
+            <div class="apps">
+                {{range .Apps}}
+                    <a class="app" href="{{.HomeURL}}">
+                        <span class="app__name">{{.Name}}</span>
+                        {{with .Note}}
+                            <span class="app__note">{{limit . 90}}</span>
+                        {{end}}
+                        <span class="app__go">열기 →</span>
+                    </a>
+                {{end}}
+            </div>
+            <p class="hint">모두 이 계정으로 로그인합니다. 앱마다 비밀번호를 따로 만들 필요가 없습니다.</p>
+        {{end}}
+    {{else}}
+        <h1>계정 센터</h1>
+        <p class="lead">하나의 계정으로 모든 사내 도구에 로그인합니다.</p>
+        <div class="card">
+            <div class="form-actions" style="margin-top:0">
+                <a class="btn primary" href="{{.Base}}/login">로그인</a>
+                <a class="btn" href="{{.Base}}/register">가입하기</a>
+            </div>
+        </div>
+    {{end}}
+{{end}}
